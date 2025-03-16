@@ -5,7 +5,7 @@ import os
 
 
 class receiveData:
-    def __init__(self, com_port="COM10", baud_rate=9600, db_name="sql.db",  timeout=5):
+    def __init__(self, com_port, baud_rate, db_name,  timeout):
         # List all available ports
         self.ports = serial.tools.list_ports.comports()
         self.portList = []

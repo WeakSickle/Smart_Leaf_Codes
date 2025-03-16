@@ -1,5 +1,5 @@
 {
     "baudRate": 9600,
-    "comPort": "COM3",
+    "comPort": "COM10",
     "devicesConnected": 3
 }
