@@ -9,6 +9,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 
+from config_interface import config_interface
+
 class PlotWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -22,13 +24,16 @@ class PlotWidget(QWidget):
         self.setLayout(layout)
         
         self.axes = self.figure.add_subplot(111)
+        # Interfaces with the config file
+        config = config_interface()
+        # Get the number of devices connected to create dictionary 
+        config.get_config_value("devicesConnected")
         
-        self.plot_types = {
-            'Sine Wave': self.plot_sin,
-            'Cosine Wave': self.plot_cos,
-            'Random Walk': self.plot_random,
-            'Quadratic': self.plot_quadratic
-        }
+        # Create a number of 
+        self.plot_types = {}
+        for i in range(1, config.get_config_value("devicesConnected")+1):
+            # Creates the dictionary and assigns the main data plotting function
+            self.plot_types[f"Device {i}"] = self.plot_sin # This will be replaced with actual reading from the db and plotting time
 
     def update_plot(self, plot_name):
         if plot_name in self.plot_types:
