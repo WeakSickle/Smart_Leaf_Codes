@@ -14,11 +14,12 @@ class config_interface:
 
     def load_config(self, filename):
         """
-        Load the config file and return its contents as a dictionary.
+        Load the config file and return its contents as a variable
         """
         try:
             with open(filename, 'r') as file:
-                return json.load(file)
+                self.config = json.load(file)
+                return self.config
         except FileNotFoundError:
             raise FileNotFoundError(f"Config file not found at: {filename}")
         except json.JSONDecodeError:
