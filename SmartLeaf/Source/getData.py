@@ -19,12 +19,13 @@ def main():
     print("Enter Node ID: ")
     chooseID = input()
 
-    cursor.execute("SELECT sku, data FROM data WHERE sku = ?", (chooseID,))
+    cursor.execute("SELECT sku, time, data FROM data WHERE sku = ?", (chooseID,))
 
     node = cursor.fetchall()
-
+    
     if node:
-       print(f"ID : {node[0][0]}, Data: {node[0][1]}")
+        for row in node:
+            print(f"ID: {row[0]}, Time: {row[1]}, Data: {row[2]}")
     else:
        print("ID NOT FOUND")
 

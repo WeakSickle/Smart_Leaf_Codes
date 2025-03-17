@@ -1,5 +1,6 @@
 import serial.tools.list_ports
 import sqlite3, json
+from datetime import datetime
 import time
 import os
 
@@ -26,7 +27,7 @@ class receiveData:
         self.cursor = self.sqliteConnection.cursor()
 
         # Create table if it doesn't exist
-        self.cursor.execute('''CREATE TABLE IF NOT EXISTS data (sku TEXT PRIMARY KEY, data TEXT)''')
+        self.cursor.execute('''CREATE TABLE IF NOT EXISTS data (sku TEXT, time TEXT, data TEXT)''')
 
         self.idFound = False
         self.valuesFound = False
@@ -64,9 +65,11 @@ class receiveData:
                     self.valuesFound = False
                     try:
                         # Insert data into the database
-                        self.cursor.execute('''INSERT INTO data (sku, data) VALUES (?, ?)''', (self.ID, self.Values))
+                        # Get the current date and time in a custom format
+                        self.current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        self.cursor.execute('''INSERT INTO data (sku, time, data) VALUES (?, ?, ?)''', (self.ID, self.current_datetime, self.Values))
                         self.sqliteConnection.commit()
-                        print(f"Inserted data: ID = {self.ID}, Values = {self.Values}")
+                        print(f"Inserted data: ID = {self.ID}, Time = {self.current_datetime}, Values = {self.Values}")
                     except sqlite3.Error as e:
                         print(f"Error inserting data: {e}")
 
