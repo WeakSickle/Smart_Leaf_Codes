@@ -11,35 +11,8 @@
 
 // Support board list , Macro definition below, select the board definition to be used
 
-// #define T3_V1_3_SX1276
-// #define T3_V1_3_SX1278
-
-// #define T3_V1_6_SX1276
-// #define T3_V1_6_SX1278
-
-// #define T3_V1_6_SX1276_TCXO
-// #define T3_V3_0_SX1276_TCXO
-
-// #define T_BEAM_SX1262
-// #define T_BEAM_SX1276
-// #define T_BEAM_SX1278
-// #define T_BEAM_LR1121
-
 #define T_BEAM_S3_SUPREME_SX1262
-// #define T_BEAM_S3_SUPREME_LR1121
 
-// #define T3_S3_V1_2_SX1262
-// #define T3_S3_V1_2_SX1276
-// #define T3_S3_V1_2_SX1278
-// #define T3_S3_V1_2_SX1280
-// #define T3_S3_V1_2_SX1280_PA
-// #define T3_S3_V1_2_LR1121
-
-// #define T_MOTION
-
-// #define T3_C6
-
-// #define T_BEAM_S3_BPF
 
 
 #define UNUSED_PIN                   (0)
