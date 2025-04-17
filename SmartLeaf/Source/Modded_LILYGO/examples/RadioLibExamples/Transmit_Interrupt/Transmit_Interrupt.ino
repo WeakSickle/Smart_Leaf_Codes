@@ -37,6 +37,8 @@ static int transmissionState = RADIOLIB_ERR_NONE;
 static volatile bool transmittedFlag = false;
 static uint32_t counter = 0;
 static String payload;
+String IDVal;
+String arrayVal;
 
 // this function is called when a complete packet
 // is transmitted by the module
@@ -258,17 +260,20 @@ void setup()
 
 void loop()
 {
+
     // check if the previous transmission finished
     if (transmittedFlag) {
+        counter++;
         int arrayValu[10] = {0};
         // Generate an array of random integers
         for (int i = 0; i < 10; i++) {
             arrayValu[i] = random(0, 100); // Random integers between 0 and 99
         }
-        
+
+        arrayVal = "[" + String(arrayValu[0]) + "," + String(arrayValu[1]) + "," + String(arrayValu[2]) + "," + String(arrayValu[3]) + "," + String(arrayValu[4]) + "," + String(arrayValu[5]) + "," + String(arrayValu[6]) + "," + String(arrayValu[7]) + "," + String(arrayValu[8]) + "," + String(arrayValu[9]) + "]";
+        IDVal = "<" + String(counter) + ">";
         // store the whole array into the payload
-        payload = "[" + String(arrayValu[0]) + "," + String(arrayValu[1]) + "," + String(arrayValu[2]) + "," + String(arrayValu[3]) + "," + String(arrayValu[4]) + "," + String(arrayValu[5]) + "," + String(arrayValu[6]) + "," + String(arrayValu[7]) + "," + String(arrayValu[8]) + "," + String(arrayValu[9]) + "]";
-        
+        payload = arrayVal + IDVal;
         transmittedFlag = false;
 
         flashLed();
@@ -315,13 +320,13 @@ void drawMain()
 
         u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
         u8g2->setCursor(22, 25);
-        u8g2->print("TX:");
+        u8g2->print("ID:");
         u8g2->setCursor(22, 40);
         u8g2->print("STATE:");
 
         u8g2->setFont(u8g2_font_crox1h_tr);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 25 );
-        u8g2->print(payload);
+        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(IDVal.c_str()) - 21, 25 );
+        u8g2->print(IDVal);
         String state = transmissionState == RADIOLIB_ERR_NONE ? "NONE" : String(transmissionState);
         u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(state.c_str()) -  21, 40 );
         u8g2->print(state);

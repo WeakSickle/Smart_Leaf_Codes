@@ -19,7 +19,9 @@
 #include <RadioLib.h>
 #include "LoRaBoards.h"
 
-int arrayVal[10] = {0};
+String ID;
+int ArrayValue[10];
+String stringArrayValue;
 
 #if     defined(USING_SX1276)
 #ifndef CONFIG_RADIO_FREQ
@@ -368,22 +370,46 @@ void loop()
         int i = 0;
         String index;
 
-        // Read first character
         index = payload.charAt(i);
-        if (index == "[") { // Begin data conversion to int array
-            while (index != "]") {
-                index = payload.charAt(i);
-                if (index == ",") { // Convert integer value between numstart and index
-                    arrayVal[counter] = payload.substring(numStart, i).toInt();
-                    counter++;
+        if (index == "[") { // Begin extracting value Array
+            i++;
+            index = payload.charAt(i);
+            while (index != "]") { // Check for end of extraction
+                if (index == ",") { // Check for end of single value
                     isNum = false;
-                } else if (isNum == false) { // Set start of integer value
+                    ArrayValue[counter] = payload.substring(numStart, i).toInt(); // Add into array
+                    counter++;
+                    i++;
+                } else if (isNum == false) { // Set starting char
                     numStart = i;
                     isNum = true;
+                    i++;
+                } else {
+                    i++;
                 }
-                i++;
+                index = payload.charAt(i);
             }
+            ArrayValue[counter] = payload.substring(numStart, i).toInt(); // Add last digit into array
         }
+
+        stringArrayValue = "[" + String(ArrayValue[0]) + "," + String(ArrayValue[1]) + "," + String(ArrayValue[2]) + "," + String(ArrayValue[3]) + "," + String(ArrayValue[4]) + "," + String(ArrayValue[5]) + "," + String(ArrayValue[6]) + "," + String(ArrayValue[7]) + "," + String(ArrayValue[8]) + "," + String(ArrayValue[9]) + "]";
+
+        // Read first character
+        i = 0;
+        index = payload.charAt(i);
+        while (index != "<") { // Check for ID
+            // Read next character
+            i++;
+            index = payload.charAt(i);
+        }
+        i++;
+        numStart = i;
+        while (index != ">") {
+            i++;
+            index = payload.charAt(i);
+        }
+
+        ID = payload.substring(numStart, i);
 
 
         // you can also read received data as byte array
@@ -405,9 +431,10 @@ void loop()
             Serial.println(F("Radio Received packet!"));
 
             // print data of the packet
-            Serial.print(F("Radio Data:\t\t"));
-            String data = String(arrayVal[4]);
-            Serial.println(data);
+            Serial.print(F("Radio ID:\t\t"));
+            Serial.println(String(ID));
+            Serial.print(F("Radio Array:\t\t"));
+            Serial.println(stringArrayValue);
 
             // print RSSI (Received Signal Strength Indicator)
             Serial.print(F("Radio RSSI:\t\t"));
@@ -446,9 +473,8 @@ void drawMain()
         u8g2->print("RSSI:");
 
         u8g2->setFont(u8g2_font_crox1h_tr);
-        String data = String(arrayVal[2]);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(data.c_str()) - 21, 20 );
-        u8g2->print(data);
+        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT((String(ID)).c_str()) - 21, 20 );
+        u8g2->print(String(ID));
         u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(snr.c_str()) - 21, 35 );
         u8g2->print(snr);
         u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(rssi.c_str()) - 21, 50 );
