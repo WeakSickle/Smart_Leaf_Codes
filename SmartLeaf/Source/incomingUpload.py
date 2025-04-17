@@ -47,13 +47,13 @@ class receiveData:
                 self.last_received_time = time.time()
 
                 # Check if 'ID' is in the message
-                if "ID" in message:
+                if "Radio ID" in message:
                     self.idFound = True
                     message_parts = message.split()  # Split the message into parts
                     self.ID = message_parts[2]  # Get the ID from the split message
 
                 # Check if 'Values' is in the message
-                if "Values" in message:
+                if "Radio Array" in message:
                     self.valuesFound = True
                     message_parts = message.split()  # Split the message into parts
                     self.Values = message_parts[2:]  # Get the Values from the split message

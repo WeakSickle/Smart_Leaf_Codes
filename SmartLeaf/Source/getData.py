@@ -11,7 +11,7 @@ def main():
     com_port = config["comPort"]
     devices_connected = config["devicesConnected"]
 
-    incomingData = receiveData(com_port, baud_rate, db_name="sql.db",  timeout=5)
+    incomingData = receiveData(com_port, baud_rate, db_name="sql.db",  timeout=10)
     incomingData.obtainData()
     sqliteConnection = sqlite3.connect('sql.db')
     cursor = sqliteConnection.cursor()
