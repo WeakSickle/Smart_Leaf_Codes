@@ -1,53 +1,22 @@
 /*
-   RadioLib Receive with Interrupts Example
+   RadioLib Transmit with Interrupts Example
 
-   This example listens for LoRa transmissions and tries to
-   receive them. Once a packet is received, an interrupt is
-   triggered. To successfully receive data, the following
-   settings have to be the same on both transmitter
-   and receiver:
-    - carrier frequency
-    - bandwidth
-    - spreading factor
-    - coding rate
-    - sync word
+   This example transmits packets using SX1276/SX1278/SX1262/SX1268/SX1280/LR1121 LoRa radio module.
+   Each packet contains up to 256 bytes of data, in the form of:
+    - Arduino String
+    - null-terminated char array (C-string)
+    - arbitrary binary data (byte array)
 
    For full API reference, see the GitHub Pages
    https://jgromes.github.io/RadioLib/
 */
 
-#include <RadioLib.h>
 #include "LoRaBoards.h"
+#include <RadioLib.h>
 
-int arrayVal[10] = {0};
-
-#if     defined(USING_SX1276)
+#if   defined(USING_SX1262)
 #ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           868.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   17
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             125.0
-#endif
-SX1276 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
-
-#elif   defined(USING_SX1278)
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           433.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   17
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             125.0
-#endif
-SX1278 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO1_PIN);
-
-#elif   defined(USING_SX1262)
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           850.0
+#define CONFIG_RADIO_FREQ           850.0 //915
 #endif
 #ifndef CONFIG_RADIO_OUTPUT_POWER
 #define CONFIG_RADIO_OUTPUT_POWER   22
@@ -58,83 +27,25 @@ SX1278 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO
 
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
-#elif   defined(USING_SX1280)
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           2400.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   13
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             203.125
-#endif
-SX1280 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
-
-#elif  defined(USING_SX1280PA)
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           2400.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   3           // PA Version power range : -18 ~ 3dBm
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             203.125
-#endif
-SX1280 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
-
-#elif   defined(USING_SX1268)
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           433.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   22
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             125.0
-#endif
-SX1268 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
-
-#elif   defined(USING_LR1121)
-
-// The maximum power of LR1121 2.4G band can only be set to 13 dBm
-// #ifndef CONFIG_RADIO_FREQ
-// #define CONFIG_RADIO_FREQ           2450.0
-// #endif
-// #ifndef CONFIG_RADIO_OUTPUT_POWER
-// #define CONFIG_RADIO_OUTPUT_POWER   13
-// #endif
-// #ifndef CONFIG_RADIO_BW
-// #define CONFIG_RADIO_BW             125.0
-// #endif
-
-// The maximum power of LR1121 Sub 1G band can only be set to 22 dBm
-#ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           868.0
-#endif
-#ifndef CONFIG_RADIO_OUTPUT_POWER
-#define CONFIG_RADIO_OUTPUT_POWER   22
-#endif
-#ifndef CONFIG_RADIO_BW
-#define CONFIG_RADIO_BW             125.0
 #endif
 
-LR1121 radio = new Module(RADIO_CS_PIN, RADIO_DIO9_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
-#endif
+void drawMain();
 
-// flag to indicate that a packet was received
-static volatile bool receivedFlag = false;
-static String rssi = "0dBm";
-static String snr = "0dB";
-static String payload = "0";
+// save transmission state between loops
+static int transmissionState = RADIOLIB_ERR_NONE;
+// flag to indicate that a packet was sent
+static volatile bool transmittedFlag = false;
+static uint32_t counter = 0;
+static String payload;
 
 // this function is called when a complete packet
-// is received by the module
+// is transmitted by the module
 // IMPORTANT: this function MUST be 'void' type
 //            and MUST NOT have any arguments!
 void setFlag(void)
 {
-    // we got a packet, set the flag
-    receivedFlag = true;
+    // we sent a packet, set the flag
+    transmittedFlag = true;
 }
 
 void setup()
@@ -164,8 +75,8 @@ void setup()
     }
 
     // set the function that will be called
-    // when new packet is received
-    radio.setPacketReceivedAction(setFlag);
+    // when packet transmission is finished
+    radio.setPacketSentAction(setFlag);
 
     /*
     *   Sets carrier frequency.
@@ -293,8 +204,6 @@ void setup()
 
     // LR1121 TCXO Voltage 2.85~3.15V
     radio.setTCXO(3.0);
-
-
 #endif
 
 #ifdef USING_DIO2_AS_RF_SWITCH
@@ -310,12 +219,10 @@ void setup()
 #endif //USING_SX1262
 #endif //USING_DIO2_AS_RF_SWITCH
 
-
 #ifdef RADIO_RX_PIN
     // SX1280 PA Version
     radio.setRfSwitchPins(RADIO_RX_PIN, RADIO_TX_PIN);
 #endif
-
 
 #ifdef RADIO_SWITCH_PIN
     // T-MOTION
@@ -331,128 +238,93 @@ void setup()
     radio.setRfSwitchTable(pins, table);
 #endif
 
+    // start transmitting the first packet
+    Serial.print(F("Radio Sending first packet ... "));
+
+    // you can transmit C-string or Arduino string up to
+    // 256 characters long
+    transmissionState = radio.startTransmit(String(counter).c_str());
+
+    // you can also transmit byte array up to 256 bytes long
+    /*
+      byte byteArr[] = {0x01, 0x23, 0x45, 0x67,
+                        0x89, 0xAB, 0xCD, 0xEF};
+      state = radio.startTransmit(byteArr, 8);
+    */
     delay(1000);
 
-    // start listening for LoRa packets
-    Serial.print(F("Radio Starting to listen ... "));
-    state = radio.startReceive();
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
-    } else {
-        Serial.print(F("failed, code "));
-        Serial.println(state);
-    }
-
     drawMain();
-
 }
-
-
-
 
 void loop()
 {
-    // check if the flag is set
-    if (receivedFlag) {
-
-        // reset flag
-        receivedFlag = false;
-
-        // you can read received data as an Arduino String
-        int state = radio.readData(payload);
-       
-        int counter = 0;
-        int len = payload.length();
-        int numStart;
-        bool isNum = false;
-        int i = 0;
-        String index;
-
-        // Read first character
-        index = payload.charAt(i);
-        if (index == "[") { // Begin data conversion to int array
-            while (index != "]") {
-                index = payload.charAt(i);
-                if (index == ",") { // Convert integer value between numstart and index
-                    arrayVal[counter] = payload.substring(numStart, i).toInt();
-                    counter++;
-                    isNum = false;
-                } else if (isNum == false) { // Set start of integer value
-                    numStart = i;
-                    isNum = true;
-                }
-                i++;
-            }
+    // check if the previous transmission finished
+    if (transmittedFlag) {
+        int arrayValu[10] = {0};
+        // Generate an array of random integers
+        for (int i = 0; i < 10; i++) {
+            arrayValu[i] = random(0, 100); // Random integers between 0 and 99
         }
-
-
-        // you can also read received data as byte array
-        /*
-          byte byteArr[8];
-          int state = radio.readData(byteArr, 8);
-        */
+        
+        // store the whole array into the payload
+        payload = "[" + String(arrayValu[0]) + "," + String(arrayValu[1]) + "," + String(arrayValu[2]) + "," + String(arrayValu[3]) + "," + String(arrayValu[4]) + "," + String(arrayValu[5]) + "," + String(arrayValu[6]) + "," + String(arrayValu[7]) + "," + String(arrayValu[8]) + "," + String(arrayValu[9]) + "]";
+        
+        transmittedFlag = false;
 
         flashLed();
 
-        if (state == RADIOLIB_ERR_NONE) {
 
-            rssi = String(radio.getRSSI()) + "dBm";
-            snr = String(radio.getSNR()) + "dB";
-
-            drawMain();
-
-            // packet was successfully received
-            Serial.println(F("Radio Received packet!"));
-
-            // print data of the packet
-            Serial.print(F("Radio Data:\t\t"));
-            String data = String(arrayVal[4]);
-            Serial.println(data);
-
-            // print RSSI (Received Signal Strength Indicator)
-            Serial.print(F("Radio RSSI:\t\t"));
-            Serial.println(rssi);
-
-            // print SNR (Signal-to-Noise Ratio)
-            Serial.print(F("Radio SNR:\t\t"));
-            Serial.println(snr);
-
-        } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
-            // packet was received, but is malformed
-            Serial.println(F("CRC error!"));
+        if (transmissionState == RADIOLIB_ERR_NONE) {
+            // packet was successfully sent
+            Serial.println(F("transmission finished!"));
+            // NOTE: when using interrupt-driven transmit method,
+            //       it is not possible to automatically measure
+            //       transmission data rate using getDataRate()
         } else {
-            // some other error occurred
             Serial.print(F("failed, code "));
-            Serial.println(state);
+            Serial.println(transmissionState);
         }
 
-        // put module back to listen mode
-        radio.startReceive();
+
+        drawMain();
+        // wait a second before transmitting again
+        delay(1000);
+
+        // send another one
+        Serial.print(F("Radio Sending another packet ... "));
+
+        // you can transmit C-string or Arduino string up to
+        // 256 characters long
+        transmissionState = radio.startTransmit(payload);
+        // you can also transmit byte array up to 256 bytes long
+        /*
+          byte byteArr[] = {0x01, 0x23, 0x45, 0x67,
+                            0x89, 0xAB, 0xCD, 0xEF};
+          int state = radio.startTransmit(byteArr, 8);
+        */
 
     }
 }
+
 
 void drawMain()
 {
     if (u8g2) {
         u8g2->clearBuffer();
         u8g2->drawRFrame(0, 0, 128, 64, 5);
+
         u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
-        u8g2->setCursor(15, 20);
-        u8g2->print("Data:");
-        u8g2->setCursor(15, 35);
-        u8g2->print("SNR:");
-        u8g2->setCursor(15, 50);
-        u8g2->print("RSSI:");
+        u8g2->setCursor(22, 25);
+        u8g2->print("TX:");
+        u8g2->setCursor(22, 40);
+        u8g2->print("STATE:");
 
         u8g2->setFont(u8g2_font_crox1h_tr);
-        String data = String(arrayVal[2]);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(data.c_str()) - 21, 20 );
-        u8g2->print(data);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(snr.c_str()) - 21, 35 );
-        u8g2->print(snr);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(rssi.c_str()) - 21, 50 );
-        u8g2->print(rssi);
+        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 25 );
+        u8g2->print(payload);
+        String state = transmissionState == RADIOLIB_ERR_NONE ? "NONE" : String(transmissionState);
+        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(state.c_str()) -  21, 40 );
+        u8g2->print(state);
         u8g2->sendBuffer();
     }
 }
