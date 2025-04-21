@@ -11,16 +11,60 @@
 
 #define CONFIG_RADIO_BW             125.0
 
+#define LOW_POWER_CONFIG
+
+#define NODE_ID 1
 
 
 // Defining the radio module and GPS 
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 SFE_UBLOX_GPS GPS;
 
-void setup() {
-    setupBoards(); // Setup the Board (pretty sure its the pins)
+enum STATE {STANDBY , GPS_ACQUISTION, GPS_LOCK, GPS_NO_LOCK, SENSOR_DATA, PMU_INFO, TRANSMIT};
+STATE currentState = STANDBY; // Default state is STANDBY (This will be low power mode most)
 
+bool receivedFlag;
+
+struct TRANSMIT_DATA {
+    int ID;
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+    float latitude;
+    float longitude;
+    float altitude;
+    bool isCharging;
+    uint16_t batteryVoltage;
+    int batteryPercentage;
+
+};
+
+TRANSMIT_DATA data; // Struct to hold the data to be transmitted after completeion of processing
+
+void setReceiveFlag(void) {
+    // we got a packet, set the flag
+    receivedFlag = true;
+  }
+
+
+void setup() {
+    data.ID = NODE_ID;
+
+    #ifdef LOW_POWER_CONFIG
+    btStop(); // Disable the bluetooth to save power 
+    WiFi.mode(WIFI_OFF); // Disable the WiFi to save power
+    #endif
+
+    setupBoards(); // Setup the Board (pretty sure its the pins)
+    
+   
+    
     delay(1500);
+
+    
 
     if (!u8g2) { // Ensure OLED SCREEN found 
         Serial.println("No find SH1106 display!Please check whether the connection is normal");
@@ -44,13 +88,13 @@ void setup() {
 
     // set the function that will be called
     // when packet transmission is finished
+   
     radio.setPacketSentAction();
-    radio.setPacketReceivedAction();
+    radio.setPacketReceivedAction(setReceiveFlag);
     /*
     *   Sets carrier frequency.
     *   SX1268/SX1262 : Allowed values are in range from 150.0 to 960.0 MHz.
     * * * */
-
     if (radio.setFrequency(CONFIG_RADIO_FREQ) == RADIOLIB_ERR_INVALID_FREQUENCY) {
         Serial.println(F("Selected frequency is invalid for this module!"));
         while (true);
@@ -101,9 +145,149 @@ void setup() {
         Serial.println(F("Selected output power is invalid for this module!"));
         while (true);
     }
+
+    GPS.setI2COutput(COM_TYPE_UBX); // Set the GPS to output UBX messages for I2C so is less power hungry 
+    // GPS.saveConfiguration(); //Save the current settings to flash and BBR (probably un comment if works)
 }
 
 
 void loop () {
+    switch (currentState) {
+        case STANDBY:
+            radio.startReceive(); // Start listening for a packet to come (ie command from master)
 
+            
+            
+            #ifdef LOW_POWER_CONFIG
+                // Return the system into a low power state
+            #endif
+            currentState = GPS_ACQUISTION; // Move to the next state
+        break;
+        case GPS_ACQUISTION:
+
+            #ifdef LOW_POWER_CONFIG // Will be using pin to control and set it to power save mode
+            digitalWrite(GPS_WAKEUP_PIN, HIGH); // Wake up the GPS module
+            delay(1000); // Wait for the GPS to wake up
+            GPS.powerSaveMode(); // Put the GPS in power save mode
+            #endif
+
+
+            // Start a timeout for GPS lock (if it is waking up but if continuous should skip)
+            const unsigned long timeout = 40000; // 30 seconds
+            unsigned long startTime = millis();
+            while (millis() - startTime < timeout) {
+              uint8_t fixType = GPS.getFixType();
+          
+              Serial.print("Fix type: ");
+              Serial.println(fixType);
+          
+              if (fixType == 3) {
+                Serial.println("GPS Lock acquired!");
+                currentState = GPS_LOCK; // Move to the next state
+                break;
+              }
+          
+              delay(500); // Wait a bit before checking again
+            }
+            
+        break;
+        case GPS_LOCK:
+            // GPS is locked read the data and store it for transmission 
+            GPS.getPVT(); // Get the PVT data from the GPS
+            data.year = GPS.gpsYear;
+            data.month = GPS.gpsMonth;
+            data.day = GPS.gpsDay;
+            data.hour = GPS.gpsHour;
+            data.minute = GPS.gpsMinute;
+            data.second = GPS.gpsSecond;
+            
+            data.latitude = GPS.latitude;
+            data.longitude = GPS.longitude;
+            data.altitude = GPS.altitude;
+            
+            Serial.print("Year: ");
+            Serial.print(data.year);
+            Serial.print(" Month: ");
+            Serial.print(data.month);
+            Serial.print(" Day: ");
+            Serial.print(data.day);
+            Serial.print(" Hour: ");
+            Serial.print(data.hour);
+            Serial.print(" Minute: ");
+            Serial.print(data.minute);
+            Serial.print(" Second: ");
+            Serial.print(data.second);
+            Serial.print(" Latitude: ");
+            Serial.print(data.latitude);
+            Serial.print(" Longitude: ");
+            Serial.print(data.longitude);
+            Serial.print(" Altitude: ");
+            Serial.println(data.altitude);
+
+           currentState = SENSOR_DATA; // Move to the next state
+        break;
+        case GPS_NO_LOCK:
+            data.year = -1;
+            data.month = -1;
+            data.day = -1;
+            data.hour = -1;
+            data.minute = -1;
+            data.second = -1;
+            
+            data.latitude = -1;
+            data.longitude = -1;
+            data.altitude = -1;
+
+            Serial.print("No GPS Lock acquired!");
+            currentState = SENSOR_DATA; // Move to the next state
+        break;
+        case SENSOR_DATA:
+            Serial.println("Sensor data processing ... ");
+            delay(1000);
+            currentState = PMU_INFO; // Move to the next state
+        break;
+        case PMU_INFO: // This will have corresponding error codes passed in eaach already if battery is not detected 
+            Serial.println("PMU processing ... ");
+            // Check the battery is being detected 
+            
+
+            float percentage = PMU->getBatteryPercent(); // Apparently this is better after a charge and discharge cycle so ill get voltage aswell
+            // Dunno how it will know though especially being turned on and off 
+
+            uint16_t BatV = PMU->getBattVoltage(); // in mV
+            
+            // Apparently it has a temperature sensor but the get temp is not exposed in interface for some reason the function is there 
+
+            // PMU->enableTemperatureMeasure();
+            // PMU->getTemperature();
+            
+            bool chargingStatus = PMU->isCharging();
+            
+            // Store the data into the struct for transmission
+            data.batteryPercentage = percentage;
+            data.batteryVoltage = BatV;
+            data.isCharging = chargingStatus;
+
+
+            currentState = TRANSMIT; // Move to the next state   
+            
+        break;
+        case TRANSMIT:
+            Serial.println("Transmitting data ... ");
+            // Read each of the parts from the struct adn put it into a string with commas in between
+            String Time = String(data.year) + "," + String(data.month) + "," + String(data.day) + "," + String(data.hour) + "," + String(data.minute) + "," + String(data.second); 
+            String Position = String(data.latitude) + "," + String(data.longitude) + "," + String(data.altitude);
+            String message = Time + "," + Position; // Combine the two strings into one message
+            
+
+            
+            // WIll need to check if this is correct implementatioon 
+            radio.startTransmit(message); // Transmit the message
+            // Transmitt 
+            Serial.print("MESSAGE SENT:");
+            currentState = STANDBY; // Move back to standby state
+        break;
+    }
 }
+
+
