@@ -112,7 +112,7 @@ void setup() {
   // when packet transmission is finished
 
   radio.setPacketSentAction(setTransmitFlag);
-  radio.setPacketReceivedAction(setReceiveFlag);
+  // radio.setPacketReceivedAction(setReceiveFlag);
   /*
    *   Sets carrier frequency.
    *   SX1268/SX1262 : Allowed values are in range from 150.0 to 960.0 MHz.
@@ -190,16 +190,18 @@ void loop() {
 
   switch (currentState) {
     case STANDBY: {
-      radio.startReceive();  // Start listening for a packet to come (ie command
+      //radio.startReceive();  // Start listening for a packet to come (ie command
                              // from master)
 
-#ifdef USE_DISPLAY
+      #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
-#endif
+      #endif
 
-#ifdef LOW_POWER_CONFIG
+      #ifdef LOW_POWER_CONFIG
                         // Return the system into a low power state
-#endif
+      #endif
+
+      delay(5000);
       currentState = GPS_ACQUISTION;  // Move to the next state
       break;
     }
@@ -227,7 +229,9 @@ void loop() {
 
         if (fixType == 3) {
           Serial.println("GPS Lock acquired!");
+          
           currentState = GPS_LOCK;  // Move to the next state
+          digitalWrite(GPS_WAKEUP_PIN, LOW);  // Put the GPS back to sleep
           break;
         }
 
@@ -246,9 +250,9 @@ void loop() {
       data.minute = GPS.gpsMinute;
       data.second = GPS.gpsSecond;
 
-      data.latitude = GPS.latitude;
-      data.longitude = GPS.longitude;
-      data.altitude = GPS.altitude;
+      data.latitude = GPS.latitude / 10000000.0;  // Convert to degrees
+      data.longitude = GPS.longitude / 10000000.0;  // Convert to degrees
+      data.altitude = GPS.altitude / 1000.0;  // Convert to meters
 
       Serial.print("Year: ");
       Serial.print(data.year);
@@ -269,17 +273,17 @@ void loop() {
       Serial.print(" Altitude: ");
       Serial.println(data.altitude);
 
-#ifdef USE_DISPLAY
+    #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
-#endif
+    #endif
 
       currentState = SENSOR_DATA;  // Move to the next state
       break;
     }
     case GPS_NO_LOCK: {
-#ifdef USE_DISPLAY
+    #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
-#endif
+    #endif
 
       data.year = -1;
       data.month = -1;
@@ -294,6 +298,7 @@ void loop() {
 
       Serial.print("No GPS Lock acquired!");
       currentState = SENSOR_DATA;  // Move to the next state
+      delay(5000);
       break;
     }
     case SENSOR_DATA: {
@@ -302,7 +307,7 @@ void loop() {
 #endif
 
       Serial.println("Sensor data processing ... ");
-      delay(1000);
+      delay(5000);
       currentState = PMU_INFO;  // Move to the next state
       break;
     }
@@ -338,7 +343,7 @@ void loop() {
       data.isCharging = chargingStatus;
 
       currentState = TRANSMIT;  // Move to the next state
-
+      delay(5000);
       break;
     }
     case TRANSMIT: {
@@ -349,18 +354,19 @@ void loop() {
       Serial.println("Transmitting data ... ");
       // Read each of the parts from the struct adn put it into a string with
       // commas in between
-      String Time = String(data.year) + "," + String(data.month) + "," +
+      //String Time = String(data.year) + "," + String(data.month) + "," +
                     String(data.day) + "," + String(data.hour) + "," +
                     String(data.minute) + "," + String(data.second);
       String Position = String(data.latitude) + "," + String(data.longitude) +
                         "," + String(data.altitude);
-      String message = Time + "," + Position;  // Combine the two strings into one message
+      String message = String(data.ID) + "," + Position;  // Combine the two strings into one message
 
       // WIll need to check if this is correct implementatioon
       radio.startTransmit(message);  // Transmit the message
       // Transmitt
       Serial.print("MESSAGE SENT:");
       currentState = STANDBY;  // Move back to standby state
+      delay(5000);
       break;
     }
   }
