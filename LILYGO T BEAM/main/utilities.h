@@ -11,7 +11,7 @@
 
 // Support board list , Macro definition below, select the board definition to be used
 
-#define T_BEAM_S3_SUPREME_SX1262
+//#define T_BEAM_S3_SUPREME_SX1262
 
 
 
@@ -423,7 +423,7 @@
 
 #define GPS_BAUD_RATE               (9600)
 
-// #define HAS_SDCARD
+#define HAS_SDCARD
 #define HAS_GPS
 #define HAS_DISPLAY
 #define HAS_PMU

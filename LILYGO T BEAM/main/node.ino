@@ -78,14 +78,14 @@ void DISPLAY_STATE() {
 void setup() {
   data.ID = NODE_ID;
 
+  setupBoards();  // Setup the Board (pretty sure its the pins)
+
+  delay(1500);
+
 #ifdef LOW_POWER_CONFIG
   btStop();             // Disable the bluetooth to save power
   WiFi.mode(WIFI_OFF);  // Disable the WiFi to save power
 #endif
-
-  setupBoards();  // Setup the Board (pretty sure its the pins)
-
-  delay(1500);
 
   if (!u8g2) {  // Ensure OLED SCREEN found
     Serial.println(
@@ -110,8 +110,9 @@ void setup() {
 
   // set the function that will be called
   // when packet transmission is finished
-
+  
   radio.setPacketSentAction(setTransmitFlag);
+  
   // radio.setPacketReceivedAction(setReceiveFlag);
   /*
    *   Sets carrier frequency.
@@ -160,7 +161,7 @@ void setup() {
     Serial.println(F("Unable to set sync word!"));
     while (true);
   }
-
+  
   /*
    * Sets transmission output power.
    * SX1262 :  Allowed values are in range from -9 to 22 dBm. This method is
@@ -172,9 +173,15 @@ void setup() {
     while (true);
   }
 
+  Serial.print(F("Passed Radio Setpupwue ... "));
+
+  Wire.begin(); // Start the I2C bus
+  GPS.begin();  // Start the GPS module
+  delay(1000); // Wait for the GPS to start up
   GPS.setI2COutput(COM_TYPE_UBX);  // Set the GPS to output UBX messages for I2C
                                    // so is less power hungry
-  // GPS.saveConfiguration(); //Save the current settings to flash and BBR
+  //GPS.saveConfiguration(); //Save the current settings to flash and BBR
+  Serial.print(F("Passed GPS ... "));
   // (probably un comment if works)
 #ifdef USE_DISPLAY
   u8g2->begin();                        // Initialize the display
@@ -231,13 +238,13 @@ void loop() {
           Serial.println("GPS Lock acquired!");
           
           currentState = GPS_LOCK;  // Move to the next state
-          digitalWrite(GPS_WAKEUP_PIN, LOW);  // Put the GPS back to sleep
           break;
         }
 
         delay(500);  // Wait a bit before checking again
       }
-
+      digitalWrite(GPS_WAKEUP_PIN, LOW);  // Put the GPS back to sleep
+      currentState = GPS_NO_LOCK;  // Move to the next state
       break;
     }
     case GPS_LOCK: {
@@ -359,12 +366,16 @@ void loop() {
                     String(data.minute) + "," + String(data.second);
       String Position = String(data.latitude) + "," + String(data.longitude) +
                         "," + String(data.altitude);
-      String message = String(data.ID) + "," + Position;  // Combine the two strings into one message
+      String Battery = String(data.batteryVoltage) + "," +
+                       String(data.batteryPercentage) + "," +
+                       String(data.isCharging);
+      String message = String(data.ID) + "," + Position + "," + Battery;  // Combine the two strings into one message
 
       // WIll need to check if this is correct implementatioon
       radio.startTransmit(message);  // Transmit the message
       // Transmitt
-      Serial.print("MESSAGE SENT:");
+      Serial.print("MESSAGE SENT: ");
+      Serial.print(message);
       currentState = STANDBY;  // Move back to standby state
       delay(5000);
       break;
