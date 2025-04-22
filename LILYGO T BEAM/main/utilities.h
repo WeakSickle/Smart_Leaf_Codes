@@ -423,7 +423,7 @@
 
 #define GPS_BAUD_RATE               (9600)
 
-#define HAS_SDCARD
+// #define HAS_SDCARD
 #define HAS_GPS
 #define HAS_DISPLAY
 #define HAS_PMU
