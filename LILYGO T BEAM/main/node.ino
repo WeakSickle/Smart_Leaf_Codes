@@ -174,8 +174,8 @@ void setup() {
 
   GPS.setI2COutput(COM_TYPE_UBX);  // Set the GPS to output UBX messages for I2C
                                    // so is less power hungry
-// GPS.saveConfiguration(); //Save the current settings to flash and BBR
-// (probably un comment if works)
+  // GPS.saveConfiguration(); //Save the current settings to flash and BBR
+  // (probably un comment if works)
 #ifdef USE_DISPLAY
   u8g2->begin();                        // Initialize the display
   u8g2->setFont(u8g2_font_ncenB08_tr);  // Set a readable font
@@ -189,7 +189,7 @@ void loop() {
 #endif
 
   switch (currentState) {
-    case STANDBY:
+    case STANDBY: {
       radio.startReceive();  // Start listening for a packet to come (ie command
                              // from master)
 
@@ -202,8 +202,8 @@ void loop() {
 #endif
       currentState = GPS_ACQUISTION;  // Move to the next state
       break;
-    case GPS_ACQUISTION:
-
+    }
+    case GPS_ACQUISTION: {
 #ifdef LOW_POWER_CONFIG  // Will be using pin to control and set it to power
                          // save mode
       digitalWrite(GPS_WAKEUP_PIN, HIGH);  // Wake up the GPS module
@@ -217,7 +217,7 @@ void loop() {
 
       // Start a timeout for GPS lock (if it is waking up but if continuous
       // should skip)
-      const unsigned long timeout = 40000;  // 30 seconds
+      const unsigned long timeout = 40000;  // 40 seconds
       unsigned long startTime = millis();
       while (millis() - startTime < timeout) {
         uint8_t fixType = GPS.getFixType();
@@ -235,7 +235,8 @@ void loop() {
       }
 
       break;
-    case GPS_LOCK:
+    }
+    case GPS_LOCK: {
       // GPS is locked read the data and store it for transmission
       GPS.getPVT();  // Get the PVT data from the GPS
       data.year = GPS.gpsYear;
@@ -274,8 +275,8 @@ void loop() {
 
       currentState = SENSOR_DATA;  // Move to the next state
       break;
-    case GPS_NO_LOCK:
-
+    }
+    case GPS_NO_LOCK: {
 #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
 #endif
@@ -294,8 +295,8 @@ void loop() {
       Serial.print("No GPS Lock acquired!");
       currentState = SENSOR_DATA;  // Move to the next state
       break;
-    case SENSOR_DATA:
-
+    }
+    case SENSOR_DATA: {
 #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
 #endif
@@ -304,8 +305,9 @@ void loop() {
       delay(1000);
       currentState = PMU_INFO;  // Move to the next state
       break;
-    case PMU_INFO:  // This will have corresponding error codes passed in eaach
-                    // already if battery is not detected
+    }
+    case PMU_INFO: {  // This will have corresponding error codes passed in
+                      // eaach already if battery is not detected
 
 #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
@@ -315,15 +317,15 @@ void loop() {
       // Check the battery is being detected
 
       float percentage =
-          PMU->getBatteryPercent();  // Apparently this is better after a charge
-                                     // and discharge cycle so ill get voltage
-                                     // aswell
+          PMU->getBatteryPercent();  // Apparently this is better after a
+                                     // charge and discharge cycle so ill get
+                                     // voltage aswell
       // Dunno how it will know though especially being turned on and off
 
       uint16_t BatV = PMU->getBattVoltage();  // in mV
 
-      // Apparently it has a temperature sensor but the get temp is not exposed
-      // in interface for some reason the function is there
+      // Apparently it has a temperature sensor but the get temp is not
+      // exposed in interface for some reason the function is there
 
       // PMU->enableTemperatureMeasure();
       // PMU->getTemperature();
@@ -338,10 +340,11 @@ void loop() {
       currentState = TRANSMIT;  // Move to the next state
 
       break;
-    case TRANSMIT:
-#ifdef USE_DISPLAY
-      DISPLAY_STATE();  // Display the current state on the screen
-#endif
+    }
+    case TRANSMIT: {
+          #ifdef USE_DISPLAY
+            DISPLAY_STATE();  // Display the current state on the screen
+          #endif
 
       Serial.println("Transmitting data ... ");
       // Read each of the parts from the struct adn put it into a string with
@@ -351,8 +354,7 @@ void loop() {
                     String(data.minute) + "," + String(data.second);
       String Position = String(data.latitude) + "," + String(data.longitude) +
                         "," + String(data.altitude);
-      String message =
-          Time + "," + Position;  // Combine the two strings into one message
+      String message = Time + "," + Position;  // Combine the two strings into one message
 
       // WIll need to check if this is correct implementatioon
       radio.startTransmit(message);  // Transmit the message
@@ -360,5 +362,6 @@ void loop() {
       Serial.print("MESSAGE SENT:");
       currentState = STANDBY;  // Move back to standby state
       break;
+    }
   }
 }
