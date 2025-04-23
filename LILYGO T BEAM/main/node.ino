@@ -184,7 +184,7 @@ void setup() {
   Serial.print(F("Passed Radio Setpupwue ... "));
 
   Wire.begin(); // Start the I2C bus
-  GPS.begin();  // Start the GPS module
+  GPS.begin(SerialGPS);  // Start the GPS module
   delay(1000); // Wait for the GPS to start up
   GPS.setI2COutput(COM_TYPE_UBX);  // Set the GPS to output UBX messages for I2C
                                    // so is less power hungry
@@ -228,7 +228,6 @@ void loop() {
                          // save mode
         digitalWrite(GPS_WAKEUP_PIN, HIGH);  // Wake up the GPS module
         delay(1000);                         // Wait for the GPS to wake up
-        GPS.powerSaveMode();                 // Put the GPS in power save mode
       #endif
 
       #ifdef USE_DISPLAY
