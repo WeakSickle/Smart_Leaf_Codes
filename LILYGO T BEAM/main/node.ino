@@ -11,14 +11,18 @@
 
 #define CONFIG_RADIO_BW 125.0
 
-#define LOW_POWER_CONFIG
 
+// Constant params 
 #define NODE_ID 1
 
-#define USE_DISPLAY
+// Setup for different levels of funtion 
+#define LOW_POWER_CONFIG // Use our power saving functionality
+
+#define USE_DISPLAY // Use the oled display 
+
+ 
 // Defining the radio module and GPS
-SX1262 radio =
-    new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
+SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 SFE_UBLOX_GPS GPS;
 
 enum STATE {
@@ -30,12 +34,12 @@ enum STATE {
   PMU_INFO,
   TRANSMIT
 };
-STATE currentState =
-    STANDBY;  // Default state is STANDBY (This will be low power mode most)
+
+STATE currentState = STANDBY;  // Default state is STANDBY (This will be low power mode most)
 
 bool receivedFlag;
-bool transmitFlag;  // Flag to indicate that a packet was received
-
+static volatile bool transmittedFlag = false;  // Flag to indicate that a packet was received
+static int transmissionState = RADIOLIB_ERR_NONE;
 struct TRANSMIT_DATA {
   int ID;
   uint16_t year;
@@ -62,7 +66,7 @@ void setReceiveFlag(void) {
 
 void setTransmitFlag(void) {
   // we got a packet, set the flag
-  transmitFlag = true;
+  transmittedFlag = true;
 }
 
 void DISPLAY_STATE() {
@@ -82,10 +86,14 @@ void setup() {
 
   delay(1500);
 
-#ifdef LOW_POWER_CONFIG
-  btStop();             // Disable the bluetooth to save power
-  WiFi.mode(WIFI_OFF);  // Disable the WiFi to save power
-#endif
+  #ifdef LOW_POWER_CONFIG
+    btStop();             // Disable the bluetooth to save power
+    WiFi.mode(WIFI_OFF);  // Disable the WiFi to save power
+   // setCpuFrequencyMhz(80); // Reduce the clock speed to 80MHz to save power
+   // esp_sleep_enable_ext0_wakeup((gpio_num_t)RADIO_DIO1_PIN, HIGH); // NOT SURE IF THIS WILL WORK
+    Serial.print("WIFI MODE: ");
+    Serial.println(WiFi.getMode());
+  #endif
 
   if (!u8g2) {  // Ensure OLED SCREEN found
     Serial.println(
@@ -96,7 +104,7 @@ void setup() {
   // Checks for setting up the LoRA transmitter
   // initialize radio with default settings
   int state = radio.begin();
-
+  
   printResult(state == RADIOLIB_ERR_NONE);
 
   Serial.print(F("Radio Initializing ... "));
@@ -183,29 +191,32 @@ void setup() {
   //GPS.saveConfiguration(); //Save the current settings to flash and BBR
   Serial.print(F("Passed GPS ... "));
   // (probably un comment if works)
-#ifdef USE_DISPLAY
-  u8g2->begin();                        // Initialize the display
-  u8g2->setFont(u8g2_font_ncenB08_tr);  // Set a readable font
-#endif
+  #ifdef USE_DISPLAY
+    u8g2->begin();                        // Initialize the display
+    u8g2->setFont(u8g2_font_ncenB08_tr);  // Set a readable font
+  #endif
+
+
 }
 
 void loop() {
-#ifdef USE_DISPLAY
+  #ifdef USE_DISPLAY
   u8g2->clearBuffer();
   u8g2->drawStr(0, 20, "Current State:");
-#endif
+  #endif
 
   switch (currentState) {
     case STANDBY: {
-      //radio.startReceive();  // Start listening for a packet to come (ie command
-                             // from master)
-
+      radio.startReceive();  // Start listening for a packet to come (ie command
+                            //  from master)
+      
       #ifdef USE_DISPLAY
-      DISPLAY_STATE();  // Display the current state on the screen
+        DISPLAY_STATE();  // Display the current state on the screen
       #endif
 
       #ifdef LOW_POWER_CONFIG
-                        // Return the system into a low power state
+      //  radio.startReceiveDutyCycle(); // This makes the radio turn on an off periodically there is calculator for 
+        //esp_deep_sleep_start();  // Put the ESP32 into deep sleep mode until a packet is received 
       #endif
 
       delay(5000);
@@ -213,20 +224,20 @@ void loop() {
       break;
     }
     case GPS_ACQUISTION: {
-#ifdef LOW_POWER_CONFIG  // Will be using pin to control and set it to power
+      #ifdef LOW_POWER_CONFIG  // Will be using pin to control and set it to power
                          // save mode
-      digitalWrite(GPS_WAKEUP_PIN, HIGH);  // Wake up the GPS module
-      delay(1000);                         // Wait for the GPS to wake up
-      GPS.powerSaveMode();                 // Put the GPS in power save mode
-#endif
+        digitalWrite(GPS_WAKEUP_PIN, HIGH);  // Wake up the GPS module
+        delay(1000);                         // Wait for the GPS to wake up
+        GPS.powerSaveMode();                 // Put the GPS in power save mode
+      #endif
 
-#ifdef USE_DISPLAY
-      DISPLAY_STATE();  // Display the current state on the screen
-#endif
+      #ifdef USE_DISPLAY
+        DISPLAY_STATE();  // Display the current state on the screen
+      #endif
 
       // Start a timeout for GPS lock (if it is waking up but if continuous
       // should skip)
-      const unsigned long timeout = 40000;  // 40 seconds
+      const unsigned long timeout = 30000;  // 40 seconds
       unsigned long startTime = millis();
       while (millis() - startTime < timeout) {
         uint8_t fixType = GPS.getFixType();
@@ -283,7 +294,7 @@ void loop() {
     #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
     #endif
-
+      digitalWrite(GPS_WAKEUP_PIN, LOW);  // Put the GPS back to sleep
       currentState = SENSOR_DATA;  // Move to the next state
       break;
     }
@@ -309,9 +320,9 @@ void loop() {
       break;
     }
     case SENSOR_DATA: {
-#ifdef USE_DISPLAY
+      #ifdef USE_DISPLAY
       DISPLAY_STATE();  // Display the current state on the screen
-#endif
+      #endif
 
       Serial.println("Sensor data processing ... ");
       delay(5000);
@@ -321,15 +332,14 @@ void loop() {
     case PMU_INFO: {  // This will have corresponding error codes passed in
                       // eaach already if battery is not detected
 
-#ifdef USE_DISPLAY
-      DISPLAY_STATE();  // Display the current state on the screen
-#endif
+      #ifdef USE_DISPLAY
+        DISPLAY_STATE();  // Display the current state on the screen
+      #endif
 
       Serial.println("PMU processing ... ");
       // Check the battery is being detected
 
-      float percentage =
-          PMU->getBatteryPercent();  // Apparently this is better after a
+      float percentage = PMU->getBatteryPercent();  // Apparently this is better after a
                                      // charge and discharge cycle so ill get
                                      // voltage aswell
       // Dunno how it will know though especially being turned on and off
@@ -350,7 +360,7 @@ void loop() {
       data.isCharging = chargingStatus;
 
       currentState = TRANSMIT;  // Move to the next state
-      delay(5000);
+      delay(1000);
       break;
     }
     case TRANSMIT: {
@@ -371,11 +381,28 @@ void loop() {
                        String(data.isCharging);
       String message = String(data.ID) + "," + Position + "," + Battery;  // Combine the two strings into one message
 
-      // WIll need to check if this is correct implementatioon
-      radio.startTransmit(message);  // Transmit the message
-      // Transmitt
-      Serial.print("MESSAGE SENT: ");
-      Serial.print(message);
+      // WIll need to check if this is correct implementation
+      if (transmittedFlag) {
+        transmittedFlag = false;  // Reset the flag
+
+        if (transmissionState == RADIOLIB_ERR_NONE) {
+          // packet was successfully sent
+          Serial.println(F("transmission finished!"));
+          // NOTE: when using interrupt-driven transmit method,
+          //       it is not possible to automatically measure
+          //       transmission data rate using getDataRate()
+          } else {
+          Serial.print(F("failed, code "));
+          Serial.println(transmissionState);
+          }
+
+
+
+        transmissionState = radio.startTransmit(message);  // Transmit the message, may need a check to ensure the message is finished
+        // Transmitt
+        Serial.print("MESSAGE SENT: ");
+        Serial.print(message);
+      }
       currentState = STANDBY;  // Move back to standby state
       delay(5000);
       break;
