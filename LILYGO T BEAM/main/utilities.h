@@ -71,7 +71,7 @@
 
 #define GPS_BAUD_RATE               (9600)
 
-#define HAS_SDCARD
+// #define HAS_SDCARD
 #define HAS_GPS
 #define HAS_DISPLAY
 #define HAS_PMU
@@ -83,13 +83,3 @@
 #define DISPLAY_MODEL               U8G2_SH1106_128X64_NONAME_F_HW_I2C
 #define DISPLAY_MODEL_SSD_LIB       SH1106Wire
 #define BOARD_VARIANT_NAME          "T-Beam S3"
-
-
-
-
-
-
-
-
-
-

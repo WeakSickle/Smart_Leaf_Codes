@@ -475,7 +475,7 @@
  
  bool beginSDCard()
  {
- #ifdef SDCARD_CS
+ #if defined(HAS_SDCARD) && defined(SDCARD_CS)
      if (SD.begin(SDCARD_CS, SDCardSPI)) {
          uint32_t cardSize = SD.cardSize() / (1024 * 1024);
          Serial.print("Sd Card init succeeded, The current available capacity is ");
