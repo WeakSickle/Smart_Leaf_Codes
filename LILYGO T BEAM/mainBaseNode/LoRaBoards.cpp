@@ -108,7 +108,7 @@
  
          PMU->enablePowerOutput(XPOWERS_LDO2);
          PMU->enablePowerOutput(XPOWERS_LDO3);
- 
+
          //protected oled power source
          PMU->setProtectedChannel(XPOWERS_DCDC1);
          //protected esp32 power source
