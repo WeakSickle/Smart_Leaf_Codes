@@ -8,32 +8,39 @@
 #include <Attribute_Request.h>
 #include <Shared_Attribute_Update.h> 
 #include <ThingsBoard.h>
-// WiFi
+
+// WiFi name and password (will have to change depending on network)
 const char* ssid = "Cepter";
 const char* password = "T0dayIS7";
 
-// ThingsBoard
-const char* token = "wftPEzifPcp1Z8szmGCs"; // Device access token from ThingsBoard
-const char* server = "192.168.1.145";       // IP address of your local ThingsBoard server
-const uint16_t port = 1883;
+// ThingsBoard connection stuff
+const char* token = "wftPEzifPcp1Z8szmGCs"; // Device access token from ThingsBoard (copied from device page)
+const char* server = "192.168.1.145";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const uint16_t port = 1883; // Jus the default port for MQTT
+
 
 constexpr size_t MAX_ATTRIBUTES = 1U;
 constexpr uint32_t MAX_MESSAGE_SIZE = 1024U;
+
+// Create instances of the ThingsBoard API classes
 Attribute_Request<MAX_ATTRIBUTES> attr_request;
 Shared_Attribute_Update<MAX_ATTRIBUTES, MAX_ATTRIBUTES> shared_update;
 
-
+// Can include the rpc method here if needed for one off commands 
 const std::array<IAPI_Implementation*, 2U> apis = {
     &attr_request,
     &shared_update
 };
 
 // WiFi + MQTT
+#define Buffer_size 256 // Custom size fo rthe message buffer to ensure message can be sent - if throws error increase 
+// (default buffer is to small)
+
 WiFiClient wifiClient;
 Arduino_MQTT_Client mqttClient(wifiClient);
-ThingsBoard tb(mqttClient,Default_Payload_Size,Default_Payload_Size,Default_Max_Stack_Size,apis);
+ThingsBoard tb(mqttClient,Buffer_size,Buffer_size,Default_Max_Stack_Size,apis);
 
-
+bool subscribed = false;
 
 constexpr uint64_t REQUEST_TIMEOUT_MICROSECONDS = 5000U * 1000U;
 
@@ -86,15 +93,18 @@ void connectWiFi() {
   Serial.println(" connected!");
 }
 
-// Connect to ThingsBoard and subscribe to shared attribute updates
 void connectTB() {
   if (!tb.connected()) {
     Serial.print("Connecting to ThingsBoard...");
     if (!tb.connect(server, token, port)) {
       Serial.println(" failed!");
+      subscribed = false;  // Reset subscription state if failed
     } else {
       Serial.println(" connected!");
-      subscribeAndRequestAttributes();
+      if (!subscribed) {
+        subscribeAndRequestAttributes();
+        subscribed = true;  // Mark subscribed to avoid duplicate subscriptions
+      }
     }
   }
 }
@@ -107,16 +117,41 @@ void setup() {
 }
 
 void loop() {
-  connectTB();
+    // Reconnect if not connected anymore 
+   if (!tb.connected()) {
+    connectTB();
+  }
   tb.loop();
   // Send telemetry data at the specified sampling frequency
- static unsigned long lastSend = 0;
+    static unsigned long lastSend = 0;
   unsigned long now = millis();
 
   // Send telemetry based on samplingFrequency, but check frequently to keep MQTT alive
   if (now - lastSend >= (unsigned long)samplingFrequency) {
+    
     Serial.println("Sending telemetry...");
-    tb.sendTelemetryData("temperature", 69.0);
+    // Prepare telemetry payload with fake data
+    StaticJsonDocument<256> doc;
+
+    // Fake sensor values
+    doc["sensor1"] = random(100, 201);
+    doc["sensor2"] = random(100, 201);   
+    doc["sensor3"] = random(100, 201);   
+    doc["sensor4"] = random(100, 201); 
+
+  // Fake battery info
+  doc["batteryVoltage"] = 3.85;
+  doc["batteryLevel"] = 74;
+
+  // Fake GPS location
+  doc["latitude"] = -36.8485;
+  doc["longitude"] = 174.7633;
+  doc["altitude"] = 12.5;
+
+  // Send all as a single JSON payload
+  tb.sendTelemetryJson(doc, measureJson(doc));
+    
+    // tb.sendTelemetryData("temperature", 69.0);
     lastSend = now;
   }
   delay(10);
