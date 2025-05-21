@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <RadioLib.h>
-
+#include "Protocentral_FDC1004_EDITTED.h"
 #include "LoRaBoards.h"
 #include "SparkFun_Ublox_Arduino_Library.h"
 
@@ -18,6 +18,10 @@
 #define LOW_POWER_CONFIG // Use our power saving functionality
 
 #define USE_DISPLAY // Use the oled display
+
+// Setup for the FDC
+#define UPPER_BOUND 0X4000  // max readout capacitance
+#define LOWER_BOUND (-1 * UPPER_BOUND)
 
 // Defining the radio module and GPS
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
@@ -55,6 +59,68 @@ struct TRANSMIT_DATA
   uint16_t batteryVoltage;
   int batteryPercentage;
 };
+
+// FDC 4 channel initialisation
+uint8_t MEASUREMENT[] = { 0, 1, 2, 3 };
+uint8_t CHANNEL[] = { 0, 1, 2, 3 };
+uint8_t CAPDAC[] = { 0, 0, 0, 0 };
+int32_t rawCapacitance[4];
+float capacitance[4];
+float avgCapacitance[4];
+float waterVol[4];
+FDC1004 FDC;
+
+void fdcRead(uint8_t* MEASUREMENT, uint8_t* CHANNEL, uint8_t* CAPDAC, int32_t* rawCapacitance) {
+  for (int i = 0; i < 4; i++) {
+    uint8_t measurement = MEASUREMENT[i];
+    uint8_t channel = CHANNEL[i];
+    uint8_t capdac = CAPDAC[i];
+
+    FDC.configureMeasurementSingle(measurement, channel, capdac);
+    FDC.triggerSingleMeasurement(measurement, FDC1004_100HZ);
+
+    //wait for completion
+    delay(15);
+    uint16_t value[2];
+    if (!FDC.readMeasurement(measurement, value)) {
+      int16_t msb = (int16_t)value[0];
+      /*int32_t*/ rawCapacitance[i] = ((int32_t)457) * ((int32_t)msb);  //in attofarads
+      rawCapacitance[i] /= 1000;                                        //in femtofarads
+      rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
+      capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
+
+      if (msb > UPPER_BOUND)  // adjust capdac accordingly
+      {
+        if (CAPDAC[i] < FDC1004_CAPDAC_MAX)
+          CAPDAC[i]++;
+      } else if (msb < LOWER_BOUND) {
+        if (CAPDAC[i] > 0)
+          CAPDAC[i]--;
+      }
+    }
+  }
+}
+
+// Averages 10 capacitance readings and converts it to water volume
+void fdcReadAverage() {
+
+  float average[] = { 0, 0, 0, 0 };
+
+  for (int i = 0; i < 10; i++) {
+    fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);
+    average[0] += capacitance[0];
+    average[1] += capacitance[1];
+    average[2] += capacitance[2];
+    average[3] += capacitance[3];
+  }
+
+  for (int i = 0; i < 4; i++) {
+    avgCapacitance[i] = average[i] /= 10;
+    // converts capacitance to water vol with equation derived from sensor experiments
+    waterVol[i] = avgCapacitance[i] * 0.7775 - 11.325; // volume in microlitre
+  }
+}
+
 
 TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
                     // completeion of processing
@@ -157,10 +223,7 @@ void setup()
       ;
   }
 
-  /*
-   * Sets LoRa link spreading factor.
-   * SX1262        :  Allowed values range from 5 to 12.
-   * * * */
+  /* Sets LoRa link spreading factor. SX1262:  Allowed values range from 5 to 12. * */
   if (radio.setSpreadingFactor(12) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
   {
     Serial.println(F("Selected spreading factor is invalid for this module!"));
@@ -363,13 +426,24 @@ case SENSOR_DATA:
 #endif
 
   Serial.println("Sensor data processing ... ");
-  delay(5000);
+  // Call the averaging function
+  fdcReadAverage();
+
+  // Print results to Serial Monitor for debugging
+  for (int i = 0; i < 4; i++) {
+    Serial.print("Sensor ");
+    Serial.print(i);
+    Serial.print(": ");
+    Serial.print(waterVol[i]);
+    Serial.println(" uL");
+  }
+  delay(2000);
   currentState = PMU_INFO; // Move to the next state
   break;
 }
 case PMU_INFO:
 { // This will have corresponding error codes passed in
-  // eaach already if battery is not detected
+  // each already if battery is not detected
 
 #ifdef USE_DISPLAY
   DISPLAY_STATE(); // Display the current state on the screen
