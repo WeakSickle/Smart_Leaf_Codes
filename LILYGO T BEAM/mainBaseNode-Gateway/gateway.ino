@@ -20,8 +20,14 @@ const uint16_t port = 1883; // Jus the default port for MQTT
 
 
 WiFiClient espClient;
-PubSubClient client(espClient);
+Arduino_MQTT_Client client(espClient);
 
+// Default sampling interval
+unsigned long samplingFrequency = 5000;
+unsigned long lastSent = 0;
+unsigned long lastRequest = 0;
+
+// Connect to the wifi
 void connectToWiFi() {
   Serial.print("Connecting to WiFi");
   WiFi.begin(ssid, password);
@@ -32,27 +38,83 @@ void connectToWiFi() {
   Serial.println("\nWiFi connected");
 }
 
+// Connection to MQTT broker
 void connectToMQTT() {
   while (!client.connected()) {
     Serial.print("Connecting to MQTT...");
     if (client.connect("GatewayClient", token, NULL)) {
-      Serial.println("connected");
+      Serial.println(" connected.");
+      if (client.subscribe("v1/gateway/attributes")) {
+        Serial.println("Subscribed to v1/gateway/attributes");
+      } else {
+        Serial.println("Failed to subscribe to v1/gateway/attributes");
+      }
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 2 seconds");
+      Serial.print(" failed, rc=");
+      Serial.println(" retrying in 2 seconds");
       delay(2000);
     }
   }
 }
 
-void connectDevice(const char* deviceName) {
-  String payload = String("{\"device\":\"") + deviceName + "\"}";
-  client.publish("v1/gateway/connect", payload.c_str());
-  Serial.print("Sent connect for ");
-  Serial.println(deviceName);
+// Callback function to handle incoming MQTT messages after request is made
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("\n[MQTT] Topic: ");
+  Serial.println(topic);
+
+  StaticJsonDocument<512> doc;
+  DeserializationError error = deserializeJson(doc, payload, length);
+  if (error) {
+    Serial.println("[MQTT] Failed to parse JSON");
+    return;
+  }
+
+  // Check for gateway shared attribute response
+  if (String(topic).startsWith("v1/devices/me/attributes/response/")) {
+    if (doc.containsKey("shared")) {
+      JsonObject shared = doc["shared"];
+      if (shared.containsKey("samplingFrequency")) {
+        // Check if the value is differnt from the current one
+        if (shared["samplingFrequency"] != samplingFrequency) {
+          // Update the sampling frequency
+          samplingFrequency = shared["samplingFrequency"];
+          Serial.print("[MQTT] Updated samplingFrequency to: ");
+          Serial.println(samplingFrequency);
+        } else {
+          Serial.println("[MQTT] No change in samplingFrequency");
+        }
+      } else {
+        Serial.println("[MQTT] samplingFrequency not found in response");
+      }
+    }
+  }
 }
 
+// Sends a request for the shared attribute "samplingFrequency" 
+void requestSharedAttribute() {
+  String payload = "{\"sharedKeys\":\"samplingFrequency\"}";
+  client.publish("v1/devices/me/attributes/request/1", (const uint8_t*)payload.c_str(), payload.length());
+  Serial.println("[MQTT] Requested shared attribute: samplingFrequency");
+}
+
+
+
+// Connects to teh virtual devices through the gateway 
+void connectDevice(const char* deviceName) {
+  String payloadStr = String("{\"device\":\"") + deviceName + "\"";
+  const uint8_t* payload = (const uint8_t*)payloadStr.c_str();
+  size_t length = payloadStr.length();
+
+  if (client.publish("v1/gateway/connect", payload, length)) {
+    Serial.print("Sent connect for ");
+    Serial.println(deviceName);
+  } else {
+    Serial.print("Failed to connect device: ");
+    Serial.println(deviceName);
+  }
+}
+
+// This is where potentially the readings of are formated from lora and sent
 void sendTelemetry() {
   // Generate random temps for each device (e.g., 20 to 30 degrees)
   int tempA = random(20, 31);
@@ -92,15 +154,17 @@ payload += "  \"Device C\": [{\"temp\": " + String(tempC)
 
 payload += "}";
 
-  // Publish telemetry and check result - if it fails is probably because the payload is too big
-  if (client.publish("v1/gateway/telemetry", payload.c_str())) {
+   const uint8_t* payloadBytes = (const uint8_t*)payload.c_str();
+  size_t payloadLength = payload.length();
+  // Publish the telemetry data for all teh stuff
+  if (client.publish("v1/gateway/telemetry", payloadBytes, payloadLength)) {
     Serial.println("Telemetry sent successfully.");
-    Serial.print("Payload: ");
-    Serial.println(payload.length());  // Print the JSON payload
+    Serial.print("Payload size: ");
+    Serial.println(payloadLength);
   } else {
     Serial.println("Failed to send telemetry.");
     Serial.print("Payload size: ");
-    Serial.println(payload.length());  // Print size of JSON payload
+    Serial.println(payloadLength);
   }
 }
 
@@ -109,14 +173,16 @@ void setup() {
   delay(1000);
   setupBoards();
   connectToWiFi();
-  client.setServer(server, port);
-
-   // Set MQTT buffer sizes before connecting to broker
-  if (!client.setBufferSize(512, 512)) {   // // Increase buffer size to 512 bytes
+  
+  client.set_server(server, port);
+  client.set_data_callback(mqttCallback);
+  // Set MQTT buffer sizes before connecting to broker
+  if (!client.set_buffer_size(512, 512)) {   // // Increase buffer size to 512 bytes
     Serial.println("Failed to set MQTT buffer sizes!");
   }
 
   connectToMQTT();
+  requestSharedAttribute();
 
   // Connect each device once at startup
   connectDevice("Device A");
@@ -124,19 +190,23 @@ void setup() {
   connectDevice("Device C");
 }
 
-unsigned long lastSent = 0;
-const unsigned long interval = 5000; // Send every 5 seconds
-
 void loop() {
-  if (!client.connected()) {
+    if (!client.connected()) {
     connectToMQTT();
   }
-
   client.loop();
 
   unsigned long now = millis();
-  if (now - lastSent > interval) {
+
+  // Send telemetry
+  if (now - lastSent > samplingFrequency) {
     sendTelemetry();
     lastSent = now;
+  }
+
+  // Re-request attribute every 30 seconds
+  if (now - lastRequest > 30000) {
+    requestSharedAttribute();
+    lastRequest = now;
   }
 }
