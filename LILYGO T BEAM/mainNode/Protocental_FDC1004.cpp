@@ -138,7 +138,7 @@ uint8_t FDC1004::measureChannel(uint8_t channel, uint8_t capdac, uint16_t * valu
 int32_t FDC1004::getCapacitance(uint8_t channel)
 {
     fdc1004_measurement_t value;
-    uint8_t result = getRawCapacitance(channel, &value);
+    uint8_t result = getRawCapacitance(channel, &value); // This is missing?
     if (result) return 0x80000000;
 
     int32_t capacitance = ((int32_t)ATTOFARADS_UPPER_WORD) * ((int32_t)value.value); //attofarads
@@ -146,3 +146,5 @@ int32_t FDC1004::getCapacitance(uint8_t channel)
     capacitance += ((int32_t)FEMTOFARADS_CAPDAC) * ((int32_t)value.capdac);
     return capacitance;
 }
+
+
