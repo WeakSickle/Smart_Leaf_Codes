@@ -98,7 +98,8 @@
      if (PMU->getChipModel() == XPOWERS_AXP192) {
  
          PMU->setProtectedChannel(XPOWERS_DCDC3);
- 
+         
+         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
          // lora
          PMU->setPowerChannelVoltage(XPOWERS_LDO2, 3300);
          // gps
@@ -108,11 +109,11 @@
  
          PMU->enablePowerOutput(XPOWERS_LDO2);
          PMU->enablePowerOutput(XPOWERS_LDO3);
-
+         PMU->enablePowerOutput(XPOWERS_ALDO2);
          //protected oled power source
          PMU->setProtectedChannel(XPOWERS_DCDC1);
          //protected esp32 power source
-         PMU->setProtectedChannel(XPOWERS_DCDC3);
+         PMU->setProtectedChannel(XPOWERS_DCDC3);  
          // enable oled power
          PMU->enablePowerOutput(XPOWERS_DCDC1);
  
