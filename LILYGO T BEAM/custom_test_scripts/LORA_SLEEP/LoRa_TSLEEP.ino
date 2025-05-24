@@ -239,12 +239,24 @@ void drawMain()
 
 // New sleep function using RadioLib
 void sleepDevice(uint32_t sleepSeconds) {
+
+    // Check for transmissions,
+    // If received then do not sleep
+    // If not withing 10 then sleep for 30 seconds and check again upon waking up
+
   Serial.println(F("Entering sleep mode..."));
   Serial.flush();
+
+  delay(100); // Verification for whether LoRa is actually asleep
+  Serial.print("BUSY pin state (Active): ");
+  Serial.println(digitalRead(RADIO_BUSY_PIN));
   
   // Put the radio to sleep
   radio.sleep();
-
+    
+  delay(100);
+  Serial.print("BUSY pin state (sleep): ");
+  Serial.println(digitalRead(RADIO_BUSY_PIN));
 
 //   // Put MCU to sleep (implementation depends on your board)
 //   // ESP32/ESP8266 version:
@@ -272,7 +284,12 @@ void sleepDevice(uint32_t sleepSeconds) {
   // When we wake up
   Serial.println(F("Waking up!"));
 
+  // Initialize the radio settings
   initializeRadio();
+
+  delay(100);
+  Serial.print("BUSY pin state (active): ");
+  Serial.println(digitalRead(RADIO_BUSY_PIN));
 
     // Temp for understanding
     transmittedFlag = true; // Set flag to true to send the first packet after waking up
