@@ -70,6 +70,7 @@ float avgCapacitance[4];
 float waterVol[4];
 FDC1004 FDC;
 
+// Main reading function of the FDC chip
 void fdcRead(uint8_t* MEASUREMENT, uint8_t* CHANNEL, uint8_t* CAPDAC, int32_t* rawCapacitance) {
   for (int i = 0; i < 4; i++) {
     uint8_t measurement = MEASUREMENT[i];

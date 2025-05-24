@@ -5,7 +5,7 @@
  * @copyright Copyright (c) 2024  ShenZhen XinYuan Electronic Technology Co., Ltd
  * @date      2024-04-24
  * @last-update 2024-08-07
- *
+ *  2024-05-24 -> Tiernan Phillips Modifications to power pins
  */
 
  #include "LoRaBoards.h"
@@ -98,7 +98,7 @@
      if (PMU->getChipModel() == XPOWERS_AXP192) {
  
          PMU->setProtectedChannel(XPOWERS_DCDC3);
-         
+         // Set the power output line for the external FDC chip power 
          PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
          // lora
          PMU->setPowerChannelVoltage(XPOWERS_LDO2, 3300);
