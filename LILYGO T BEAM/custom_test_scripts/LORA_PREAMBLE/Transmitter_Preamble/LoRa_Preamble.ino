@@ -171,36 +171,21 @@ void loop()
     // check if the previous transmission finished
     if (transmittedFlag) {
 
-        payload = "#" + String(counter++);
-
-        // reset flag
         transmittedFlag = false;
-
-        flashLed();
-
-
-        if (transmissionState == RADIOLIB_ERR_NONE) {
-            // packet was successfully sent
-            Serial.println(F("transmission finished!"));
-            // NOTE: when using interrupt-driven transmit method,
-            //       it is not possible to automatically measure
-            //       transmission data rate using getDataRate()
-        } else {
-            Serial.print(F("failed, code "));
-            Serial.println(transmissionState);
-        }
-
-
+        
+        // 1. First send pure preamble (minimum 12 symbols, better 16)
+        radio.startTransmit(""); // Empty packet = just preamble
+        delay(150); // Critical delay (minimum 20ms for SX1262)
+        
+        // 2. Then send actual data
+        payload = "#" + String(counter++);
+        transmissionState = radio.startTransmit(payload.c_str());
+        
+        // 3. Optional post-delay
+        delay(110);
+        
         drawMain();
-        // wait a second before transmitting again
-        delay(1000);
-
-        // send another one
-        Serial.print(F("Radio Sending another packet ... "));
-
-        //radio.startTransmit("", 0); // send empty packet for preamble test
-        //delay(10);
-        radio.startTransmit(payload.c_str());
+        delay(1000); // Adjust based on your needs
     }
 }
 
@@ -339,7 +324,7 @@ void initializeRadio(){
     * SX1280        : Allowed values range from 1 to 65535. preamble length is multiple of 4
     * LR1121        : Allowed values range from 1 to 65535.
     * * */
-    if (radio.setPreambleLength(16) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
+    if (radio.setPreambleLength(100) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
         Serial.println(F("Selected preamble length is invalid for this module!"));
         while (true);
     }

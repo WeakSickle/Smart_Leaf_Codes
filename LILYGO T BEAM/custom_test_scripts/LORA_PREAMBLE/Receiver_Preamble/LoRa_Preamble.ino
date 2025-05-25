@@ -19,6 +19,9 @@
 #include <RadioLib.h>
 #include "LoRaBoards.h"
 
+volatile bool enableInterrupt = true;  // For safe interrupt handling
+int state;
+
 #if     defined(USING_SX1276)
 #ifndef CONFIG_RADIO_FREQ
 #define CONFIG_RADIO_FREQ           868.0
@@ -121,6 +124,7 @@ LR1121 radio = new Module(RADIO_CS_PIN, RADIO_DIO9_PIN, RADIO_RST_PIN, RADIO_BUS
 
 // flag to indicate that a packet was received
 static volatile bool receivedFlag = false;
+bool complete = false;
 static String rssi = "0dBm";
 static String snr = "0dB";
 static String payload = "0";
@@ -130,7 +134,14 @@ static String payload = "0";
 // IMPORTANT: this function MUST be 'void' type
 //            and MUST NOT have any arguments!
 void setFlag(void)
-{
+{   
+
+    if (!enableInterrupt) {
+        // if interrupts are disabled, do not set the flag
+        return;
+    }
+
+    Serial.println(digitalRead(RADIO_DIO1_PIN));
     // we got a packet, set the flag
     receivedFlag = true;
 }
@@ -150,18 +161,15 @@ void setup()
     // initialize the radio module
     initializeRadio();
 
+    pinMode(RADIO_DIO1_PIN, INPUT_PULLUP); // Set DIO1 as input with pull-up resistor
+
     delay(1000);
 
     // start listening for LoRa packets
-    Serial.print(F("Radio Starting to listen ... "));
-    int state = radio.startReceive();
-    if (state == RADIOLIB_ERR_NONE) {
-        Serial.println(F("success!"));
-    } else {
-        Serial.print(F("failed, code "));
-        Serial.println(state);
-    }
+    Serial.print(F("Radio will wake up based on preamble... "));
 
+    startLowPowerReceive();
+    
     drawMain();
 }
 
@@ -170,11 +178,17 @@ void loop()
     // check if the flag is set
     if (receivedFlag) {
 
+        complete = false;
+
+        // disable interrupts to prevent
+        // the setFlag function from being called
+        enableInterrupt = false;
+
         // reset flag
         receivedFlag = false;
 
         // you can read received data as an Arduino String
-        int state = radio.readData(payload);
+        state = radio.readData(payload);
 
         // you can also read received data as byte array
         /*
@@ -215,10 +229,28 @@ void loop()
             Serial.println(state);
         }
 
-        // put module back to listen mode
-        radio.startReceive();
+        // put module back to low power receive mode
+        startLowPowerReceive();
+        // re-enable interrupts to allow the setFlag function to be called
+        enableInterrupt = true;
+
+        delay(1000); // Add a delay to avoid flooding the serial output
 
     }
+    Serial.println(digitalRead(RADIO_DIO1_PIN)); // Should be LOW when asleep
+    
+    //     [enableInterrupt = true;
+    // // if no packet was received, print a message once
+    //     if (!complete) {
+    //         complete = true;
+    //     Serial.print(F("Waiting for packet... "));
+    //     }
+    //     Serial.print("DIO1 state: ");
+    //     Serial.println(digitalRead(RADIO_DIO1_PIN)); // Should pulse LOW on preamble
+  
+    //     if(digitalRead(RADIO_DIO1_PIN) == LOW) {
+    //     Serial.println("Preamble detected!");
+    //     
 }
 
 
@@ -245,62 +277,35 @@ void drawMain()
         u8g2->sendBuffer();
     }
 }
-// New sleep function using RadioLib
-void sleepDevice(uint32_t sleepSeconds) {
 
-    // Check for transmissions,
-    // If received then do not sleep
-    // If not withing 10 then sleep for 30 seconds and check again upon waking up
+void startLowPowerReceive() {
 
-  Serial.println(F("Entering sleep mode..."));
-  Serial.flush();
+    // Disable interrupts to prevent
+    // the setFlag function from being called
+    enableInterrupt = false;
 
-  delay(100); // Verification for whether LoRa is actually asleep
-  Serial.print("BUSY pin state (Active): ");
-  Serial.println(digitalRead(RADIO_BUSY_PIN));
-  
-  // Put the radio to sleep
-  radio.sleep();
-    
-  delay(100);
-  Serial.print("BUSY pin state (sleep): ");
-  Serial.println(digitalRead(RADIO_BUSY_PIN));
 
-//   // Put MCU to sleep (implementation depends on your board)
-//   // ESP32/ESP8266 version:
-//   #if defined(ESP32) || defined(ESP8266)
-//     esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000);
-//     esp_deep_sleep_start();
-  
-//   // Arduino AVR version:
-//   #else
-//     for (uint32_t i = 0; i < sleepSeconds; i++) {
-//       LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF); 
-//     }
-//   #endif
+  // First put radio in receive mode
+  state = radio.startReceive();
+  if (state != RADIOLIB_ERR_NONE) {
+    Serial.print(F("Receive mode failed, code "));
+    Serial.println(state);
+    return;
+  }
 
-    
-  delay(5000);
-  
-  // Reinitialize radio after sleep
-  int state = radio.begin();
-  // Reapply your radio settings if needed
-  //radio.setFrequency(CONFIG_RADIO_FREQ);
-  
-  //setup(); // regain all settings
+  Serial.println(digitalRead(RADIO_BUSY_PIN)); // Should be LOW when receiving
 
-  // When we wake up
-  Serial.println(F("Waking up!"));
+  // Then put radio to standby (Low-power but keeps IRQ enabled) (it will automatically wake on preamble detection)
+  state = radio.standby();
 
-  // Initialize the radio settings
-  initializeRadio();
+  if (state != RADIOLIB_ERR_NONE) {
+    Serial.print(F("Sleep failed, code "));
+    Serial.println(state);
+    return;
+  }
 
-  delay(100);
-  Serial.print("BUSY pin state (active): ");
-  Serial.println(digitalRead(RADIO_BUSY_PIN));
-
-    // Temp for understanding
-    receivedFlag = true; // Set flag to true to send the first packet after waking up
+  // Re-enable interrupts to allow the setFlag function to be called
+    enableInterrupt = true;
 
 }
 
@@ -310,9 +315,8 @@ void initializeRadio(){
     pinMode(RADIO_TCXO_ENABLE, OUTPUT);
     digitalWrite(RADIO_TCXO_ENABLE, HIGH);
 #endif
-
     // initialize radio with default settings
-    int state = radio.begin();
+    state = radio.begin();
 
     printResult(state == RADIOLIB_ERR_NONE);
 
@@ -420,10 +424,11 @@ void initializeRadio(){
     * SX1280        : Allowed values range from 1 to 65535. preamble length is multiple of 4
     * LR1121        : Allowed values range from 1 to 65535.
     * * */
-    if (radio.setPreambleLength(16) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
+    if (radio.setPreambleLength(100) == RADIOLIB_ERR_INVALID_PREAMBLE_LENGTH) {
         Serial.println(F("Selected preamble length is invalid for this module!"));
         while (true);
     }
+
 
     // Enables or disables CRC check of received packets.
     if (radio.setCRC(false) == RADIOLIB_ERR_INVALID_CRC_CONFIGURATION) {
@@ -492,4 +497,5 @@ void initializeRadio(){
     };
     radio.setRfSwitchTable(pins, table);
 #endif
+
 }
