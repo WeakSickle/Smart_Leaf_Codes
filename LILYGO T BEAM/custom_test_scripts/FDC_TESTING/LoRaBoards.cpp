@@ -5,7 +5,7 @@
  * @copyright Copyright (c) 2024  ShenZhen XinYuan Electronic Technology Co., Ltd
  * @date      2024-04-24
  * @last-update 2024-08-07
- *
+ *  2024-05-24 -> Tiernan Phillips Modifications to power pins
  */
 
  #include "LoRaBoards.h"
@@ -98,9 +98,9 @@
      if (PMU->getChipModel() == XPOWERS_AXP192) {
  
          PMU->setProtectedChannel(XPOWERS_DCDC3);
- 
-         // lora
+         // Set the power output line for the external FDC chip power 
          PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
+         // lora
          PMU->setPowerChannelVoltage(XPOWERS_LDO2, 3300);
          // gps
          PMU->setPowerChannelVoltage(XPOWERS_LDO3, 3300);
@@ -110,11 +110,10 @@
          PMU->enablePowerOutput(XPOWERS_LDO2);
          PMU->enablePowerOutput(XPOWERS_LDO3);
          PMU->enablePowerOutput(XPOWERS_ALDO2);
- 
          //protected oled power source
          PMU->setProtectedChannel(XPOWERS_DCDC1);
          //protected esp32 power source
-         PMU->setProtectedChannel(XPOWERS_DCDC3);
+         PMU->setProtectedChannel(XPOWERS_DCDC3);  
          // enable oled power
          PMU->enablePowerOutput(XPOWERS_DCDC1);
  
@@ -477,7 +476,7 @@
  
  bool beginSDCard()
  {
- #ifdef SDCARD_CS
+ #if defined(HAS_SDCARD) && defined(SDCARD_CS)
      if (SD.begin(SDCARD_CS, SDCardSPI)) {
          uint32_t cardSize = SD.cardSize() / (1024 * 1024);
          Serial.print("Sd Card init succeeded, The current available capacity is ");
@@ -881,6 +880,10 @@
              case 0x51:
                  Serial.println("\tFind PCF8563 RTC!");
                  deviceOnline |= PCF8563_ONLINE;
+                 break;
+            case 0x50:
+                 Serial.println("\tdetected?");
+                 //deviceOnline |= FDC1004_ONLINE;
                  break;
              case 0x1C:
                  Serial.println("\tFind QMC6310 MAG Sensor!");
