@@ -14,12 +14,12 @@ SX1262 radio =
     new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
 // flag to indicate that a packet was received
-static volatile bool receivedFlag = false;
+static volatile bool SentFlag = false;
 static String payload = "0";
 
 void setFlag(void) {
   // set the flag
-  receivedFlag = true;
+  SentFlag = true;
 }
 
 // SCRIPT TO BE FOR TESTING BASE NODE RECEIVING OVER MULTIPLCE CARRIER
@@ -32,7 +32,7 @@ void setup() {
   // initialize radio with default settings
   int state = radio.begin();
 
-  radio.setPacketReceivedAction(setFlag);
+  radio.setPacketSentAction(setFlag);
 
   // SX1262 Configuration
 
@@ -95,7 +95,7 @@ void setup() {
 void loop() {
   for (int i = 0; i < sizeof(Frequencies) / sizeof(Frequencies[0]); i++) {
     float freq = Frequencies[i];
-    Serial.print(F("Trying frequency: "));
+    Serial.print(F("Transmitting on frequency: "));
     Serial.println(freq);
 
     // Set frequency
@@ -104,32 +104,35 @@ void loop() {
       continue;
     }
 
-    // listen for a packet for a while on this frequency
-    radio.startReceive();  // Or blocking: radio.receive(NULL);
-    while (!receivedFlag) {
-      // idle, waiting for interrupt/callback to set receivedFlag
-      delay(10); // Prevents watchdog reset or tight loop hogging CPU
+    unsigned long startTime = millis();
+    // This will change frequency after 5 seconds this can cause some funky shit it think on reciver end
+    // I think its cause it swaps like part way through or some shit for multi device i dont thinkg should be a problem
+
+    while (millis() - startTime < 5000) {
+      // Create a unique payload for each message (optional)
+      String message = "Freq #" + String(i) + " - Time: " + String(millis());
+
+      // Transmit message
+      int state = radio.transmit(message);
+      // Confirm if it was sent
+      if (state == RADIOLIB_ERR_NONE) {
+        Serial.println(F("Transmission successful!"));
+        Serial.print(F("Message time on air:"));
+        Serial.println(radio.getTimeOnAir(message.length()));
+      } else {
+        Serial.print(F("Transmission failed, code "));
+        Serial.println(state);
+      }
+
+      flashLed();
+
+      // delay between messages - this would have to be adjusted i think based on time on air
+      delay(500);
     }
 
-    // Process the received packet
-    receivedFlag = false;
-    int state = radio.readData(payload);
-    flashLed();
-
-    if (state == RADIOLIB_ERR_NONE) {
-      Serial.println(F("Packet received!"));
-      Serial.print(F("Radio Data:\t\t"));
-      Serial.println(payload);
-    } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
-      Serial.println(F("CRC error!"));
-    } else {
-      Serial.print(F("Receive failed, code "));
-      Serial.println(state);
-    }
-
-    // Stop listening before changing frequency
+    //  go to standby between frequency changes
     radio.standby();
   }
 
-  Serial.println(F("Frequency sweep complete."));
+  Serial.println(F("Frequency sweep complete. Looping again."));
 }
