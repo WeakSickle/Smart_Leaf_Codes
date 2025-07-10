@@ -107,7 +107,6 @@ uint8_t FDC1004::readMeasurement(uint8_t measurement, uint16_t * value)
         Serial.println("bad read request");
         return 1;
     }
-    Serial.println(measurement);
     //check if measurement is complete
     uint16_t fdc_register = read16(FDC_REGISTER);
     if (! (fdc_register & ( 1 << (3-measurement)))) {

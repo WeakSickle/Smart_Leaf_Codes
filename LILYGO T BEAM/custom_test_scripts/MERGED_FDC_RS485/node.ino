@@ -3,12 +3,18 @@
 #include "LoRaBoards.h"
 #include "SparkFun_Ublox_Arduino_Library.h"
 #include "Protocentral_FDC1004_EDITTED.h"
+#include "SoilSensor.h"
 // Radio Parameters
 #define CONFIG_RADIO_FREQ 850.0
 
 #define CONFIG_RADIO_OUTPUT_POWER 22
 
 #define CONFIG_RADIO_BW 125.0
+
+// uint8_t com[8] = {DeviceAddress,FunctionCode,0x00,0x00,0x00,NumberOfRegisters,0x44,0x0C};
+SoilSensor FourParam;
+uint8_t resp[13];
+bool result = false;
 
 // Constant params
 #define NODE_ID 1
@@ -152,69 +158,57 @@ void setTransmitFlag(void)
   transmittedFlag = true;
 }
 
-// void DISPLAY_STATE()
-// {
-//   u8g2->clearBuffer(); // Clear the display buffer
-//   String stateString =
-//       "State: " +
-//       String(currentState); // Create a string with the current state
-//   u8g2->drawStr(0, 20,
-//                 stateString.c_str()); // Draw the state string on the display
-//   u8g2->sendBuffer();                 // Send the buffer to the display
-// }
-
 void setup()
 {
+  //Wire.begin();
+  GPS.begin(SerialGPS);
+  delay(1000);
+  GPS.setI2COutput(COM_TYPE_UBX); // Set the I2C output to UBX
   data.ID = NODE_ID;
 
   setupBoards(); // Setup the Board (pretty sure its the pins)
 
-  delay(1500);
-
   Serial.begin(115200); // Start the serial communication
 
-  //Wire.begin(); // Start the I2C communication
-
-  // u8g2->begin();                       // Initialize the display
-  // u8g2->setFont(u8g2_font_ncenB08_tr);
+  FourParam.begin();
+  delay(3000);
 }
 
 void loop()
 {
+  GPS.getPVT();
 
+  Serial.print("Year: ");
+  Serial.print(GPS.gpsYear);
+  Serial.print(" Month: ");
+  Serial.print(GPS.gpsMonth);
+  Serial.print(" Day: ");
+  Serial.print(GPS.gpsDay);
+  Serial.print(" Hour: ");
+  Serial.print(GPS.gpsHour);
+  Serial.print(" Minute: ");
+  Serial.print(GPS.gpsMinute);
+  Serial.print(" Second: ");
+  Serial.print(GPS.gpsSecond);
+  Serial.print(" Latitude: ");
+  Serial.print(GPS.latitude / 10000000.0);
+  Serial.print(" Longitude: ");
+  Serial.print(GPS.longitude / 10000000.0);
+  Serial.print(" Altitude: ");
+  Serial.println(GPS.altitude / 1000.0);
 
-  // Serial.println("Starting FDC Readings...");
-  // FDC.configureMeasurementSingle(0, 0, capdac);
-  // FDC.triggerSingleMeasurement(capdac, FDC1004_100HZ);
-  // Serial.println("FDC Readings Triggered");
-  //wait for completion
-  // delay(15);
-  // uint16_t value[2];
-  // if (! FDC.readMeasurement(0, value))
-  // {
-  //   Serial.println("FDC Readings Completed");
-  //   int16_t msb = (int16_t) value[0];
-  //   int32_t capacitance = ((int32_t)457) * ((int32_t)msb); //in attofarads
-  //   capacitance /= 1000;   //in femtofarads
-  //   capacitance += ((int32_t)3028) * ((int32_t)capdac);
-
-  //   Serial.print((((float)capacitance/1000)),capdac);
-  //   Serial.print("  pf, ");
-
-  //   if (msb > UPPER_BOUND)               // adjust capdac accordingly
-	// {
-  //     if (0 < FDC1004_CAPDAC_MAX)
-	//   capdac++;
-  //   }
-	// else if (msb < LOWER_BOUND)
-	// {
-  //     if (capdac > 0)
-	//   capdac--;
-  //   }
-
-  // } else {
-  //   Serial.println("FDC Readings Failed");
-  // }
+  result = FourParam.readSensor(resp);
+    if (result) {
+      Serial.print("Temperature: ");
+      Serial.println(FourParam.GetTemperature(resp));
+      Serial.print("Moisture: ");
+      Serial.println(FourParam.GetMoisture(resp));
+      Serial.print("EC: ");
+      Serial.println(FourParam.GetEC(resp));
+      Serial.print("PH: ");
+      Serial.println(FourParam.GetPH(resp));
+    }
+  
   fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);
   fdcReadAverage();
   delay(2000);
