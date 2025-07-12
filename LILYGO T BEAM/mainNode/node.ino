@@ -3,7 +3,8 @@
 #include "Protocentral_FDC1004_EDITTED.h"
 #include "LoRaBoards.h"
 #include "SparkFun_Ublox_Arduino_Library.h"
-
+#include "SoilSensor.h"
+#include "transmit_utils.h"
 // Radio Parameters
 #define CONFIG_RADIO_FREQ 850.0
 
@@ -16,8 +17,8 @@
 
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
-
 #define USE_DISPLAY // Use the oled display
+#define USE_SOIL // Use the soil sensor
 
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
@@ -26,7 +27,10 @@
 // Defining the radio module and GPS
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 SFE_UBLOX_GPS GPS;
-
+// Setup for the soils sensor
+SoilSensor FourParam;
+uint8_t resp[13];
+TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
 enum STATE
 {
   STANDBY,
@@ -43,22 +47,17 @@ STATE currentState = STANDBY; // Default state is STANDBY (This will be low powe
 bool receivedFlag;
 static volatile bool transmittedFlag = true; // Flag to indicate that a packet was received
 static int transmissionState = RADIOLIB_ERR_NONE;
-struct TRANSMIT_DATA
-{
-  int ID;
-  uint16_t year;
-  uint8_t month;
-  uint8_t day;
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t second;
-  float latitude;
-  float longitude;
-  float altitude;
-  bool isCharging;
-  uint16_t batteryVoltage;
-  int batteryPercentage;
-};
+
+// Function for checking the RADIO setup error codes 
+bool checkError(int errCode, const char* errMsg) {
+  if (errCode != RADIOLIB_ERR_NONE) {
+    Serial.println(errMsg);
+    while (true);
+    return false;  // Will never reach here but good style
+  }
+  return true;
+}
+
 
 // FDC 4 channel initialisation
 uint8_t MEASUREMENT[] = { 0, 1, 2, 3 };
@@ -123,9 +122,6 @@ void fdcReadAverage() {
 }
 
 
-TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
-                    // completeion of processing
-
 void setReceiveFlag(void)
 {
   // we got a packet, set the flag
@@ -156,6 +152,7 @@ void setup()
   setupBoards(); // Setup the Board (pretty sure its the pins)
 
   delay(1500);
+  
 
 #ifdef LOW_POWER_CONFIG   // Initial power saving setup
   btStop();               // Disable the bluetooth to save power
@@ -200,82 +197,23 @@ void setup()
 
   radio.setPacketSentAction(setTransmitFlag);
 
-  // radio.setPacketReceivedAction(setReceiveFlag);
-  /*
-   *   Sets carrier frequency.
-   *   SX1268/SX1262 : Allowed values are in range from 150.0 to 960.0 MHz.
-   * * * */
-  if (radio.setFrequency(CONFIG_RADIO_FREQ) == RADIOLIB_ERR_INVALID_FREQUENCY)
-  {
-    Serial.println(F("Selected frequency is invalid for this module!"));
-    while (true)
-      ;
-  }
+  checkError(radio.setFrequency(CONFIG_RADIO_FREQ), "Selected frequency is invalid for this module!");
+  checkError(radio.setBandwidth(CONFIG_RADIO_BW), "Selected bandwidth is invalid for this module!");
+  checkError(radio.setSpreadingFactor(12), "Selected spreading factor is invalid for this module!");
+  checkError(radio.setCodingRate(6), "Selected coding rate is invalid for this module!");
+  checkError(radio.setSyncWord(0xAB), "Unable to set sync word!");
+  checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER), "Selected output power is invalid for this module!");
 
-  /*
-   *   Sets LoRa link bandwidth.
-   *   SX1268/SX1262 : Allowed values
-   * are 7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125.0, 250.0 and 500.0 kHz.
-   * * * */
-  if (radio.setBandwidth(CONFIG_RADIO_BW) == RADIOLIB_ERR_INVALID_BANDWIDTH)
-  {
-    Serial.println(F("Selected bandwidth is invalid for this module!"));
-    while (true)
-      ;
-  }
 
-  /* Sets LoRa link spreading factor. SX1262:  Allowed values range from 5 to 12. * */
-  if (radio.setSpreadingFactor(12) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
-  {
-    Serial.println(F("Selected spreading factor is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  /*
-   * Sets LoRa coding rate denominator.
-   * SX1278/SX1276/SX1268/SX1262 : Allowed values range from 5 to 8. Only
-   * available in LoRa mode.
-   * * * */
-  if (radio.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE)
-  {
-    Serial.println(F("Selected coding rate is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  /*
-   * Sets LoRa sync word.
-   * SX1278/SX1276/SX1268/SX1262/SX1280 : Sets LoRa sync word. Only available in
-   * LoRa mode.
-   * * */
-  if (radio.setSyncWord(0xAB) != RADIOLIB_ERR_NONE)
-  {
-    Serial.println(F("Unable to set sync word!"));
-    while (true)
-      ;
-  }
-
-  /*
-   * Sets transmission output power.
-   * SX1262 :  Allowed values are in range from -9 to 22 dBm. This method is
-   * virtual to allow override from the SX1261 class.
-   * * * */
-  if (radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER) ==
-      RADIOLIB_ERR_INVALID_OUTPUT_POWER)
-  {
-    Serial.println(F("Selected output power is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  Serial.print(F("Passed Radio Setpupwue ... "));
+  Serial.print(F("Passed Radio Setup ... "));
 
   Wire.begin();                   // Start the I2C bus
   GPS.begin(SerialGPS);           // Start the GPS module
-  delay(1000);                    // Wait for the GPS to start up
-  GPS.setI2COutput(COM_TYPE_UBX); // Set the GPS to output UBX messages for I2C
-                                  // so is less power hungry
+  #ifdef USE_SOIL
+    FourParam.begin(); // Initialize the soil sensor
+  #endif
+    delay(1000);                    // Wait for the GPS to start up
+  GPS.setI2COutput(COM_TYPE_UBX); // Set the GPS to output UBX messages for I2C so is less power hungry
   // GPS.saveConfiguration(); //Save the current settings to flash and BBR
   Serial.print(F("Passed GPS ... "));
 // (probably un comment if works)
@@ -439,6 +377,10 @@ case SENSOR_DATA:
     Serial.println(" uL");
   }
   delay(2000);
+  #ifdef USE_SOIL
+    // Reads the soil sensor and save the data 
+    FourParam.readSensor(resp);
+  #endif
   currentState = PMU_INFO; // Move to the next state
   break;
 }
@@ -487,15 +429,19 @@ case TRANSMIT:
   // Read each of the parts from the struct adn put it into a string with
   // commas in between
   // String Time = String(data.year) + "," + String(data.month) + "," +
-  String(data.day) + "," + String(data.hour) + "," +
-      String(data.minute) + "," + String(data.second);
-  String Position = String(data.latitude) + "," + String(data.longitude) +
-                    "," + String(data.altitude);
-  String Battery = String(data.batteryVoltage) + "," +
-                   String(data.batteryPercentage) + "," +
-                   String(data.isCharging);
-  String message = String(data.ID) + "," + Position + "," + Battery; // Combine the two strings into one message
-
+  // String(data.day) + "," + String(data.hour) + "," +
+  //     String(data.minute) + "," + String(data.second);
+  // String Position = String(data.latitude) + "," + String(data.longitude) +
+  //                   "," + String(data.altitude);
+  // String Battery = String(data.batteryVoltage) + "," +
+  //                  String(data.batteryPercentage) + "," +
+  //                  String(data.isCharging);
+  // String message = String(data.ID) + "," + Position + "," + Battery; // Combine the two strings into one message
+  
+  String message = FormatMessage(data); // Format the message using the function instead cleaner
+  
+  Serial.print("Message to send: ");
+  Serial.println(message);
   // WIll need to check if this is correct implementation
   Serial.println(transmittedFlag);
   if (transmittedFlag)

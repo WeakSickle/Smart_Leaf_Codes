@@ -8,12 +8,15 @@
 #include <Attribute_Request.h>
 #include <Shared_Attribute_Update.h> 
 #include <ThingsBoard.h>
+#include "transmit_utils.h"
 
 // Radio Parameters
 #define USE_RADIO // If using the lora radio 
 #define CONFIG_RADIO_FREQ 850.0
 #define CONFIG_RADIO_OUTPUT_POWER 22
 #define CONFIG_RADIO_BW 125.0
+#define NUMBER_OF_DEVICES 3 // Number of devices in use that will be connected to the base node
+
 
 static volatile bool transmittedFlag = false; // Flag to indicate that a packet was received
 static volatile bool receivedFlag = false; // Flag to indicate that a packet was received
@@ -49,6 +52,18 @@ Arduino_MQTT_Client client(espClient);
 unsigned long samplingFrequency = 5000;
 unsigned long lastSent = 0;
 unsigned long lastRequest = 0;
+TRANSMIT_DATA devices[NUMBER_OF_DEVICES]; // Structs for each of the number of devices
+
+
+// Function for checking the RADIO setup error codes 
+bool checkError(int errCode, const char* errMsg) {
+  if (errCode != RADIOLIB_ERR_NONE) {
+    Serial.println(errMsg);
+    while (true);
+    return false;  // Will never reach here but good style
+  }
+  return true;
+}
 
 // Connect to the wifi
 void connectToWiFi() {
@@ -59,6 +74,14 @@ void connectToWiFi() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected");
+}
+
+void ConnectToDevices() {
+  for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
+    String deviceName = "Device " + String(i + 1);
+    connectDevice(deviceName.c_str());
+    delay(1000); // Wait a bit before connecting to the next device
+  }
 }
 
 // Connection to MQTT broker
@@ -135,50 +158,95 @@ void connectDevice(const char* deviceName) {
   }
 }
 
+// Function to combine multiple devices data into Payload 
+String buildPayload() {
+    String payload = "{\n";
 
+    for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
+        String deviceName = "Device " + String(i + 1);
+
+        payload += "  \"" + deviceName + "\": [";
+        payload += transmitDataToJson(devices[i]);
+        payload += "]";
+
+        if (i < NUMBER_OF_DEVICES - 1) {
+            payload += ",\n";
+        } else {
+            payload += "\n";
+        }
+    }
+
+    payload += "}";
+
+    return payload;
+}
 
 // This is where potentially the readings of are formated from lora and sent
 void RecieveAndSendTelemetry() {
  // !! REPLACE THE RANDOM BULLSHIT VALUES WITH THE TRANSMISSION ADN RECIEVE OF LORA MESSAGES !!
 
+  // Cycle through each frequency devic
+  for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
+    // Simulate receiving data from each device
+    devices[i].ID = i + 1; // Device ID
+    devices[i].year = 2023;
+    devices[i].month = 10;
+    devices[i].day = 1;
+    devices[i].hour = 12;
+    devices[i].minute = 0;
+    devices[i].second = 0;
+    devices[i].latitude = 37.7749 + (i * 0.01); // Simulated latitude
+    devices[i].longitude = -122.4194 + (i * 0.01); // Simulated longitude
+    devices[i].altitude = 10.0 + (i * 5); // Simulated altitude
+    devices[i].Temperature = random(20, 30); // Simulated temperature
+    devices[i].Moisture = random(30, 70); // Simulated moisture
+    devices[i].EC = random(100, 500); // Simulated EC
+    devices[i].PH = random(6, 8); // Simulated pH
+    devices[i].isCharging = (i % 2 == 0); // Charging status alternating
+    devices[i].batteryVoltage = random(3, 5); // Simulated battery voltage
+    devices[i].batteryPercentage = random(50, 100); // Simulated battery percentage
+  }
 
-  // Generate random temps for each device (e.g., 20 to 30 degrees)
-  int tempA = random(20, 31);
-  int tempB = random(20, 31);
-  int tempC = random(20, 31);
+  // Build the payload from all devices
+  String payload = buildPayload();
 
-  // Fixed values for battery %, latitude and longitude per device
-const int batteryA = 75;
-const int batteryB = 60;
-const int batteryC = 90;
+//   // Generate random temps for each device (e.g., 20 to 30 degrees)
+//   int tempA = random(20, 31);
+//   int tempB = random(20, 31);
+//   int tempC = random(20, 31);
 
-const float latA = 37.7749;
-const float longA = -122.4194;
+//   // Fixed values for battery %, latitude and longitude per device
+// const int batteryA = 75;
+// const int batteryB = 60;
+// const int batteryC = 90;
 
-const float latB = 40.7128;
-const float longB = -74.0060;
+// const float latA = 37.7749;
+// const float longA = -122.4194;
 
-const float latC = 51.5074;
-const float longC = -0.1278;
+// const float latB = 40.7128;
+// const float longB = -74.0060;
 
-// Build JSON payload dynamically using String - probably a better way to do this
-String payload = "{\n";
-payload += "  \"Device A\": [{\"temp\": " + String(tempA) 
-         + ", \"battery\": " + String(batteryA) 
-         + ", \"lat\": " + String(latA, 6) 
-         + ", \"long\": " + String(longA, 6) + "}],\n";
+// const float latC = 51.5074;
+// const float longC = -0.1278;
 
-payload += "  \"Device B\": [{\"temp\": " + String(tempB) 
-         + ", \"battery\": " + String(batteryB) 
-         + ", \"lat\": " + String(latB, 6) 
-         + ", \"long\": " + String(longB, 6) + "}],\n";
+// // Build JSON payload dynamically using String - probably a better way to do this
+// String payload = "{\n";
+// payload += "  \"Device A\": [{\"temp\": " + String(tempA) 
+//          + ", \"battery\": " + String(batteryA) 
+//          + ", \"lat\": " + String(latA, 6) 
+//          + ", \"long\": " + String(longA, 6) + "}],\n";
 
-payload += "  \"Device C\": [{\"temp\": " + String(tempC) 
-         + ", \"battery\": " + String(batteryC) 
-         + ", \"lat\": " + String(latC, 6) 
-         + ", \"long\": " + String(longC, 6) + "}]\n";
+// payload += "  \"Device B\": [{\"temp\": " + String(tempB) 
+//          + ", \"battery\": " + String(batteryB) 
+//          + ", \"lat\": " + String(latB, 6) 
+//          + ", \"long\": " + String(longB, 6) + "}],\n";
 
-payload += "}";
+// payload += "  \"Device C\": [{\"temp\": " + String(tempC) 
+//          + ", \"battery\": " + String(batteryC) 
+//          + ", \"lat\": " + String(latC, 6) 
+//          + ", \"long\": " + String(longC, 6) + "}]\n";
+
+// payload += "}";
 
   const uint8_t* payloadBytes = (const uint8_t*)payload.c_str();
   size_t payloadLength = payload.length();
@@ -226,56 +294,13 @@ void setup() {
 
     radio.setPacketReceivedAction(setReceiveFlag);
   
-  // Sets carrier frequency. SX1268/SX1262 : Allowed values are in range from 150.0 to 960.0 MHz.
-  if (radio.setFrequency(CONFIG_RADIO_FREQ) == RADIOLIB_ERR_INVALID_FREQUENCY)
-  {
-    Serial.println(F("Selected frequency is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  // Sets LoRa link bandwidth. SX1268/SX1262 : Allowed values are 7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125.0, 250.0 and 500.0 kHz.
-  if (radio.setBandwidth(CONFIG_RADIO_BW) == RADIOLIB_ERR_INVALID_BANDWIDTH)
-  {
-    Serial.println(F("Selected bandwidth is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  /* Sets LoRa link spreading factor. SX1262:  Allowed values range from 5 to 12. * */
-  if (radio.setSpreadingFactor(12) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR)
-  {
-    Serial.println(F("Selected spreading factor is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  // Sets LoRa coding rate denominator. SX1278/SX1276/SX1268/SX1262 : Allowed values range from 5 to 8. Only available in LoRa mode.
-  if (radio.setCodingRate(6) == RADIOLIB_ERR_INVALID_CODING_RATE)
-  {
-    Serial.println(F("Selected coding rate is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  // Sets LoRa sync word. SX1278/SX1276/SX1268/SX1262/SX1280 : Sets LoRa sync word. Only available in LoRa mode.
-  if (radio.setSyncWord(0xAB) != RADIOLIB_ERR_NONE)
-  {
-    Serial.println(F("Unable to set sync word!"));
-    while (true)
-      ;
-  }
-
-  // Sets transmission output power. SX1262 :  Allowed values are in range from -9 to 22 dBm. This method is virtual to allow override from the SX1261 class.
-  if (radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER) ==
-      RADIOLIB_ERR_INVALID_OUTPUT_POWER)
-  {
-    Serial.println(F("Selected output power is invalid for this module!"));
-    while (true)
-      ;
-  }
-
-  Serial.print(F("Passed Radio Setpup ... "));
+    checkError(radio.setFrequency(CONFIG_RADIO_FREQ), "Selected frequency is invalid for this module!");
+    checkError(radio.setBandwidth(CONFIG_RADIO_BW), "Selected bandwidth is invalid for this module!");
+    checkError(radio.setSpreadingFactor(12), "Selected spreading factor is invalid for this module!");
+    checkError(radio.setCodingRate(6), "Selected coding rate is invalid for this module!");
+    checkError(radio.setSyncWord(0xAB), "Unable to set sync word!");
+    checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER), "Selected output power is invalid for this module!");
+    Serial.print(F("Passed Radio Setpup ... "));
   #endif
 
   // * Initialise the MQTT client to communicate with the ThingsBoard server */
