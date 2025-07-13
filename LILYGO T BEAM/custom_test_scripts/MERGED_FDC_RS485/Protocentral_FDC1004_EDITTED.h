@@ -67,13 +67,25 @@ class FDC1004
     uint8_t triggerSingleMeasurement(uint8_t measurement, uint8_t rate);
     uint8_t readMeasurement(uint8_t measurement, uint16_t * value);
     uint8_t measureChannel(uint8_t channel, uint8_t capdac, uint16_t * value);
-	    uint16_t read16(uint8_t reg);
+    void fdcRead();
+    uint16_t read16(uint8_t reg);
+    void fdcReadAverage();
 
  private:
+
     uint8_t _addr;
     uint8_t _rate;
     uint8_t _last_capdac[4];
+    uint8_t MEASUREMENT[4] = { 0, 1, 2, 3 };
+    uint8_t CHANNEL[4] = { 0, 1, 2, 3 };
+    uint8_t CAPDAC[4] = { 0, 0, 0, 0 };
+    int capdac = 0;
+    int32_t rawCapacitance[4];
+    float capacitance[4];
+    float avgCapacitance[4];
+    float waterVol[4];
     void write16(uint8_t reg, uint16_t data);
+    
 
 };
 

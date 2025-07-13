@@ -24,7 +24,11 @@
 #include <Protocentral_FDC1004_EDITTED.h>
 #include <LoRaBoards.h>
 
+// Setup for the FDC
+#define UPPER_BOUND 0X4000  // max readout capacitance
+#define LOWER_BOUND (-1 * UPPER_BOUND)
 
+// Constants and limits for FDC1004
 #define FDC1004_UPPER_BOUND ((int16_t) 0x4000)
 #define FDC1004_LOWER_BOUND (-1 * FDC1004_UPPER_BOUND)
 
@@ -32,6 +36,66 @@ uint8_t MEAS_CONFIG[] = {0x08, 0x09, 0x0A, 0x0B};
 uint8_t MEAS_MSB[] = {0x00, 0x02, 0x04, 0x06};
 uint8_t MEAS_LSB[] = {0x01, 0x03, 0x05, 0x07};
 uint8_t SAMPLE_DELAY[] = {11,11,6,3};
+
+// Main reading function of the FDC chip
+void FDC1004::fdcRead() {
+  for (int i = 0; i < 4; i++) {
+    uint8_t measurement = MEASUREMENT[i];
+    uint8_t channel = CHANNEL[i];
+    uint8_t capdac = CAPDAC[i];
+
+    configureMeasurementSingle(measurement, channel, capdac);
+    triggerSingleMeasurement(measurement, FDC1004_100HZ);
+
+    //wait for completion
+    delay(15);
+    uint16_t value[2];
+    if (!readMeasurement(measurement, value)) {
+      int16_t msb = (int16_t)value[0];
+      /*int32_t*/ rawCapacitance[i] = ((int32_t)457) * ((int32_t)msb);  //in attofarads
+      rawCapacitance[i] /= 1000;                                        //in femtofarads
+      rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
+      capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
+
+      if (msb > UPPER_BOUND)  // adjust capdac accordingly
+      {
+        if (CAPDAC[i] < FDC1004_CAPDAC_MAX)
+          CAPDAC[i]++;
+      } else if (msb < LOWER_BOUND) {
+        if (CAPDAC[i] > 0)
+          CAPDAC[i]--;
+      }
+    }
+  }
+}
+
+// Averages 10 capacitance readings and converts it to water volume
+void FDC1004::fdcReadAverage() {
+
+  float average[] = { 0, 0, 0, 0 };
+
+  for (int i = 0; i < 10; i++) {
+    fdcRead();
+    average[0] += capacitance[0];
+    average[1] += capacitance[1];
+    average[2] += capacitance[2];
+    average[3] += capacitance[3];
+  }
+
+  Serial.println("Average capacitance readings:");
+  Serial.print("Channel 1: ");
+  Serial.print(average[0] / 10);
+  Serial.println(" pF");
+  Serial.print("Channel 2: ");
+  Serial.print(average[1] / 10);
+  Serial.println(" pF");
+
+  for (int i = 0; i < 4; i++) {
+    avgCapacitance[i] = average[i] /= 10;
+    // converts capacitance to water vol with equation derived from sensor experiments
+    waterVol[i] = avgCapacitance[i] * 0.7775 - 11.325; // volume in microlitre
+  }
+}
 
 FDC1004::FDC1004(uint16_t rate)
 {
