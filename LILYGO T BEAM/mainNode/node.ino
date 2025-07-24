@@ -23,14 +23,20 @@
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
 #define LOWER_BOUND (-1 * UPPER_BOUND)
+#define USE_FDC // Use the FDC1004 sensor
 
 // Defining the radio module and GPS
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 SFE_UBLOX_GPS GPS;
+
 // Setup for the soils sensor
 SoilSensor FourParam;
 uint8_t resp[13];
 TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
+
+// FDC setupt
+FDC1004 FDC;
+
 enum STATE
 {
   STANDBY,
@@ -57,70 +63,6 @@ bool checkError(int errCode, const char* errMsg) {
   }
   return true;
 }
-
-
-// FDC 4 channel initialisation
-uint8_t MEASUREMENT[] = { 0, 1, 2, 3 };
-uint8_t CHANNEL[] = { 0, 1, 2, 3 };
-uint8_t CAPDAC[] = { 0, 0, 0, 0 };
-int32_t rawCapacitance[4];
-float capacitance[4];
-float avgCapacitance[4];
-float waterVol[4];
-FDC1004 FDC;
-
-// Main reading function of the FDC chip
-void fdcRead(uint8_t* MEASUREMENT, uint8_t* CHANNEL, uint8_t* CAPDAC, int32_t* rawCapacitance) {
-  for (int i = 0; i < 4; i++) {
-    uint8_t measurement = MEASUREMENT[i];
-    uint8_t channel = CHANNEL[i];
-    uint8_t capdac = CAPDAC[i];
-
-    FDC.configureMeasurementSingle(measurement, channel, capdac);
-    FDC.triggerSingleMeasurement(measurement, FDC1004_100HZ);
-
-    //wait for completion
-    delay(15);
-    uint16_t value[2];
-    if (!FDC.readMeasurement(measurement, value)) {
-      int16_t msb = (int16_t)value[0];
-      /*int32_t*/ rawCapacitance[i] = ((int32_t)457) * ((int32_t)msb);  //in attofarads
-      rawCapacitance[i] /= 1000;                                        //in femtofarads
-      rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
-      capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
-
-      if (msb > UPPER_BOUND)  // adjust capdac accordingly
-      {
-        if (CAPDAC[i] < FDC1004_CAPDAC_MAX)
-          CAPDAC[i]++;
-      } else if (msb < LOWER_BOUND) {
-        if (CAPDAC[i] > 0)
-          CAPDAC[i]--;
-      }
-    }
-  }
-}
-
-// Averages 10 capacitance readings and converts it to water volume
-void fdcReadAverage() {
-
-  float average[] = { 0, 0, 0, 0 };
-
-  for (int i = 0; i < 10; i++) {
-    fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);
-    average[0] += capacitance[0];
-    average[1] += capacitance[1];
-    average[2] += capacitance[2];
-    average[3] += capacitance[3];
-  }
-
-  for (int i = 0; i < 4; i++) {
-    avgCapacitance[i] = average[i] /= 10;
-    // converts capacitance to water vol with equation derived from sensor experiments
-    waterVol[i] = avgCapacitance[i] * 0.7775 - 11.325; // volume in microlitre
-  }
-}
-
 
 void setReceiveFlag(void)
 {
@@ -204,19 +146,23 @@ void setup()
   checkError(radio.setSyncWord(0xAB), "Unable to set sync word!");
   checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER), "Selected output power is invalid for this module!");
 
-
+  ///////
   Serial.print(F("Passed Radio Setup ... "));
+  ///////
 
   Wire.begin();                   // Start the I2C bus
   GPS.begin(SerialGPS);           // Start the GPS module
+
   #ifdef USE_SOIL
     FourParam.begin(); // Initialize the soil sensor
   #endif
-    delay(1000);                    // Wait for the GPS to start up
+
+  delay(1000);                    // Wait for the GPS to start up
   GPS.setI2COutput(COM_TYPE_UBX); // Set the GPS to output UBX messages for I2C so is less power hungry
   // GPS.saveConfiguration(); //Save the current settings to flash and BBR
   Serial.print(F("Passed GPS ... "));
 // (probably un comment if works)
+
 #ifdef USE_DISPLAY
   u8g2->begin();                       // Initialize the display
   u8g2->setFont(u8g2_font_ncenB08_tr); // Set a readable font
@@ -226,6 +172,7 @@ void setup()
   pinMode(GPS_WAKEUP_PIN, OUTPUT);   // Set the GPS wakeup pin as output
   digitalWrite(GPS_WAKEUP_PIN, LOW); // Put the GPS to sleep
 #endif
+
 }
 
 void loop()
@@ -255,7 +202,7 @@ void loop()
     currentState = GPS_ACQUISITION; // Move to the next state
     break;
   }
-  case GPS_ACQUISITION: {
+  case GPS_ACQUISITION: { // Acquire Satellite lock
     #ifdef LOW_POWER_CONFIG
         digitalWrite(GPS_WAKEUP_PIN, HIGH);  // Wake up GPS once at start
         delay(1000);  // Stabilization time
@@ -292,7 +239,7 @@ void loop()
     break;
 }
 
-case GPS_LOCK:
+case GPS_LOCK: // Once lock is acquired do this step
 {
   // GPS is locked read the data and store it for transmission
   GPS.getPVT(); // Get the PVT data from the GPS
@@ -365,18 +312,17 @@ case SENSOR_DATA:
 #endif
 
   Serial.println("Sensor data processing ... ");
-  // Call the averaging function
-  fdcReadAverage();
 
-  // Print results to Serial Monitor for debugging
-  for (int i = 0; i < 4; i++) {
-    Serial.print("Sensor ");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.print(waterVol[i]);
-    Serial.println(" uL");
-  }
+  // Moisture Sensors
+  #ifdef USE_FDC
+  FDC.fdcRead(); // Read the FDC data
+  float channelOne = FDC.fdcReadAverageOne(); // Average the FDC data then print it
+  float channelTwo = FDC.fdcReadAverageTwo();
+  int waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
+  int waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
   delay(2000);
+  #endif
+
   #ifdef USE_SOIL
     // Reads the soil sensor and save the data 
     FourParam.readSensor(resp);

@@ -22,7 +22,13 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 #include <Protocentral_FDC1004_EDITTED.h>
+#include <LoRaBoards.h>
 
+// Setup for the FDC
+#define UPPER_BOUND 0X4000  // max readout capacitance
+#define LOWER_BOUND (-1 * UPPER_BOUND)
+
+// Constants and limits for FDC1004
 #define FDC1004_UPPER_BOUND ((int16_t) 0x4000)
 #define FDC1004_LOWER_BOUND (-1 * FDC1004_UPPER_BOUND)
 
@@ -30,6 +36,91 @@ uint8_t MEAS_CONFIG[] = {0x08, 0x09, 0x0A, 0x0B};
 uint8_t MEAS_MSB[] = {0x00, 0x02, 0x04, 0x06};
 uint8_t MEAS_LSB[] = {0x01, 0x03, 0x05, 0x07};
 uint8_t SAMPLE_DELAY[] = {11,11,6,3};
+
+
+uint8_t convertCapacitanceToWaterVolume(float capacitance, int sensorNumber) {
+  // Conversion logic based on sensor calibration
+  // This is a placeholder implementation
+  if (sensorNumber == 1) {
+    return (uint8_t)((capacitance - 17.226) * 1.155); // Example conversion for sensor 1
+  } else if (sensorNumber == 2) {
+    return (uint8_t)((capacitance - 21.551) * 2.930); // Example conversion for sensor 2
+  } else if (sensorNumber == 3) {
+    return (uint8_t)((capacitance - 14.132) * 4.534); // Example conversion for sensor 3
+  } else if (sensorNumber == 4) {
+    return (uint8_t)((capacitance - 20.528) * 0.68); // Example conversion for sensor 4
+  } else if (sensorNumber == 5) {
+    return (uint8_t)((capacitance - 15.673) * 0.056); // Example conversion for sensor 5
+  } else  if (sensorNumber == 6) {
+    return (uint8_t)((capacitance - 19.35) * 0.6); // Example conversion for sensor 6
+  } else {
+    return 0; // Invalid sensor number
+  }
+}
+
+// Main reading function of the FDC chip
+void FDC1004::fdcRead() {
+  for (int i = 0; i < 4; i++) {
+    uint8_t measurement = MEASUREMENT[i];
+    uint8_t channel = CHANNEL[i];
+    uint8_t capdac = CAPDAC[i];
+
+    configureMeasurementSingle(measurement, channel, capdac);
+    triggerSingleMeasurement(measurement, FDC1004_100HZ);
+
+    //wait for completion
+    delay(15);
+    uint16_t value[2];
+    if (!readMeasurement(measurement, value)) {
+      int16_t msb = (int16_t)value[0];
+      /*int32_t*/ rawCapacitance[i] = ((int32_t)457) * ((int32_t)msb);  //in attofarads
+      rawCapacitance[i] /= 1000;                                        //in femtofarads
+      rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
+      capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
+
+      if (msb > UPPER_BOUND)  // adjust capdac accordingly
+      {
+        if (CAPDAC[i] < FDC1004_CAPDAC_MAX)
+          CAPDAC[i]++;
+      } else if (msb < LOWER_BOUND) {
+        if (CAPDAC[i] > 0)
+          CAPDAC[i]--;
+      }
+    }
+  }
+}
+
+// Averages 10 capacitance readings and converts it to water volume
+float FDC1004::fdcReadAverageOne() {
+
+  float average[] = { 0, 0, 0, 0 };
+
+  for (int i = 0; i < 10; i++) {
+    fdcRead();
+    average[0] += capacitance[0];
+  }
+
+  Serial.println("Average capacitance readings:");
+  Serial.print("Channel 1: ");
+  Serial.print(average[0] / 10);
+  Serial.println(" pF");
+
+}
+
+float FDC1004::fdcReadAverageTwo() {
+
+  float average[] = { 0, 0, 0, 0 };
+
+  for (int i = 0; i < 10; i++) {
+    fdcRead();
+    average[1] += capacitance[1];
+  }
+
+  Serial.print("Channel 2: ");
+  Serial.print(average[1] / 10);
+  Serial.println(" pF");
+
+}
 
 FDC1004::FDC1004(uint16_t rate)
 {
@@ -100,24 +191,26 @@ uint8_t FDC1004::triggerSingleMeasurement(uint8_t measurement, uint8_t rate)
  */
 uint8_t FDC1004::readMeasurement(uint8_t measurement, uint16_t * value)
 {
+
     if (!FDC1004_IS_MEAS(measurement)) {
         Serial.println("bad read request");
         return 1;
     }
-
     //check if measurement is complete
     uint16_t fdc_register = read16(FDC_REGISTER);
     if (! (fdc_register & ( 1 << (3-measurement)))) {
         Serial.println("measurement not completed");
         return 2;
     }
-
   //read the value
   uint16_t msb = read16(MEAS_MSB[measurement]);
   uint16_t lsb = read16(MEAS_LSB[measurement]);
   value[0] = msb;
   value[1] = lsb;
+  //store the capdac value
+
   return 0;
+
 }
 
 /**

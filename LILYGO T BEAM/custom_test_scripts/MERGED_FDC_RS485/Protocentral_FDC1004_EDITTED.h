@@ -69,7 +69,6 @@ class FDC1004
     uint8_t measureChannel(uint8_t channel, uint8_t capdac, uint16_t * value);
     void fdcRead();
     uint16_t read16(uint8_t reg);
-    void fdcReadAverage();
 
  private:
 

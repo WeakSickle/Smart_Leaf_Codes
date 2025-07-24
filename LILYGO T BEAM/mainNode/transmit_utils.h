@@ -13,6 +13,8 @@ struct TRANSMIT_DATA
   uint8_t hour;
   uint8_t minute;
   uint8_t second;
+  uint8_t waterOne;
+  uint8_t waterTwo;
   float latitude;
   float longitude;
   float altitude;
@@ -37,6 +39,8 @@ String FormatMessage(const TRANSMIT_DATA &data) {
                    String(data.latitude, 6) + "," +
                    String(data.longitude, 6) + "," +
                    String(data.altitude, 2) + "," +
+                   String(data.waterOne) + "," +
+                   String(data.waterTwo) + "," +
                    String(data.Temperature) + "," +
                    String(data.Moisture) + "," +
                    String(data.EC) + "," +

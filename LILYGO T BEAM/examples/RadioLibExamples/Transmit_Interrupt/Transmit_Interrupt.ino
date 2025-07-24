@@ -40,7 +40,7 @@ SX1278 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO
 
 #elif   defined(USING_SX1262)
 #ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           850.0
+#define CONFIG_RADIO_FREQ           923.5 // 923.5, 923.8
 #endif
 #ifndef CONFIG_RADIO_OUTPUT_POWER
 #define CONFIG_RADIO_OUTPUT_POWER   22
@@ -349,7 +349,7 @@ void loop()
     // check if the previous transmission finished
     if (transmittedFlag) {
 
-        payload = "#" + String(counter++);
+        payload = "Node 2";
 
         // reset flag
         transmittedFlag = false;
