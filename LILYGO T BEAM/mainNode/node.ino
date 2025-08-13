@@ -19,6 +19,11 @@
 #define LOW_POWER_CONFIG // Use our power saving functionality
 #define USE_DISPLAY // Use the oled display
 #define USE_SOIL // Use the soil sensor
+#define USE_SLEEP
+
+const unsigned long TRANSMISSION_DURATION_MS = 60000;
+const uint64_t minutesToSleep = 1;
+
 
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
@@ -186,8 +191,7 @@ void loop()
   {
   case STANDBY:
   {
-    radio.startReceive(); // Start listening for a packet to come (ie command
-                          //  from master)
+
 
 #ifdef USE_DISPLAY
     DISPLAY_STATE(); // Display the current state on the screen
@@ -198,7 +202,7 @@ void loop()
 // esp_deep_sleep_start();  // Put the ESP32 into deep sleep mode until a packet is received
 #endif
 
-    delay(5000);
+    // delay(5000);
     currentState = GPS_ACQUISITION; // Move to the next state
     break;
   }
@@ -388,31 +392,55 @@ case TRANSMIT:
   
   Serial.print("Message to send: ");
   Serial.println(message);
+
+  unsigned long startTime = millis();
+  unsigned long endTime = startTime + TRANSMISSION_DURATION_MS;
+
   // WIll need to check if this is correct implementation
   Serial.println(transmittedFlag);
-  if (transmittedFlag)
-  {
-    transmittedFlag = false; // Reset the flag
+  // Loop and keep transmitting until the period is reached
+  while (millis() < endTime) {
+    if (transmittedFlag) {
+      transmittedFlag = false; // Reset the flag for the next transmission
 
-    if (transmissionState == RADIOLIB_ERR_NONE)
-    {
-      // packet was successfully sent
-      Serial.println(F("transmission finished!"));
-      // NOTE: when using interrupt-driven transmit method,
-      //       it is not possible to automatically measure
-      //       transmission data rate using getDataRate()
-    }
-    else
-    {
-      Serial.print(F("failed, code "));
-      Serial.println(transmissionState);
-    }
+      // Check if the previous transmission was successful
+      if (transmissionState == RADIOLIB_ERR_NONE) {
+        Serial.println(F("Transmission finished successfully!"));
+      } else {
+        Serial.print(F("Transmission failed, code: "));
+        Serial.println(transmissionState);
+      }
 
-    transmissionState = radio.startTransmit(message); // Transmit the message, may need a check to ensure the message is finished
-    // Transmitt
-    Serial.print("MESSAGE SENT: ");
-    Serial.println(message);
+      // Start the next transmission
+      transmissionState = radio.startTransmit(message);
+      Serial.print("MESSAGE SENT: ");
+      Serial.println(message);
+    }
   }
+    
+  // if (transmittedFlag)
+  // {
+  //   transmittedFlag = false; // Reset the flag
+
+  //   if (transmissionState == RADIOLIB_ERR_NONE)
+  //   {
+  //     // packet was successfully sent
+  //     Serial.println(F("transmission finished!"));
+  //     // NOTE: when using interrupt-driven transmit method,
+  //     //       it is not possible to automatically measure
+  //     //       transmission data rate using getDataRate()
+  //   }
+  //   else
+  //   {
+  //     Serial.print(F("failed, code "));
+  //     Serial.println(transmissionState);
+  //   }
+
+  //   transmissionState = radio.startTransmit(message); // Transmit the message, may need a check to ensure the message is finished
+  //   // Transmitt
+  //   Serial.print("MESSAGE SENT: ");
+  //   Serial.println(message);
+  // }
   currentState = STANDBY; // Move back to standby state
   delay(5000);
   break;
