@@ -344,6 +344,10 @@ case SENSOR_DATA:
     FourParam.readSensor(resp);
     bool result = FourParam.readSensor(resp);
     if (result) {
+      data.Temperature = FourParam.GetTemperature(resp);
+      data.Moisture = FourParam.GetMoisture(resp);
+      data.EC = FourParam.GetEC(resp);
+      data.PH = FourParam.GetPH(resp);
       Serial.print("Temperature: ");
       Serial.println(FourParam.GetTemperature(resp));
       Serial.print("Moisture: ");
@@ -399,29 +403,8 @@ case TRANSMIT:
 #endif
 
   Serial.println("Transmitting data ... ");
-  // Compose each part of the message from previously set variables
-String Time = String(data.year) + "," + String(data.month) + "," +
-              String(data.day) + "," + String(data.hour) + "," +
-              String(data.minute) + "," + String(data.second);
 
-String Position = String(data.latitude) + "," + String(data.longitude) +
-                  "," + String(data.altitude);
-
-String Battery = String(data.batteryVoltage) + "," +
-                 String(data.batteryPercentage) + "," +
-                 String(data.isCharging);
-
-// FDC water volume readings (assume waterVolumeOne and waterVolumeTwo are set in SENSOR_DATA)
-String FDC_Water = String(waterVolumeOne) + "," + String(waterVolumeTwo);
-
-// Soil sensor readings (assume FourParam and resp are set in SENSOR_DATA)
-String Soil = String(FourParam.GetTemperature(resp)) + "," +
-              String(FourParam.GetMoisture(resp)) + "," +
-              String(FourParam.GetEC(resp)) + "," +
-              String(FourParam.GetPH(resp));
-
-// Combine everything into one message
-String message = String(data.ID) + "," + Time + "," + Position + "," + Battery + "," + FDC_Water + "," + Soil;
+String message = FormatMessage(data); // Format the data into a string for transmission
 
 Serial.print("Message to send: ");
 Serial.println(message);
