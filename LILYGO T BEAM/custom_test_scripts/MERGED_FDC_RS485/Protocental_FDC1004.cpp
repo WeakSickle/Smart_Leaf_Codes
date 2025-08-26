@@ -114,17 +114,18 @@ void FDC1004::write16(uint8_t reg, uint16_t data)
 
 uint16_t FDC1004::read16(uint8_t reg)
 {
-  Wire.beginTransmission(_addr);
-  Wire.write(reg);
-  Wire.endTransmission();
-  uint16_t value;
-  Wire.beginTransmission(_addr);
-  Wire.requestFrom(_addr, (uint8_t)2);
-  value = Wire.read();
-  value <<= 8;
-  value |= Wire.read();
-  Wire.endTransmission();
-  return value;
+    Wire.beginTransmission(_addr);
+    Wire.write(reg);
+    Wire.endTransmission(false); // Send a restart, not a stop
+
+    Wire.requestFrom(_addr, (uint8_t)2);
+    if (Wire.available() < 2) {
+        return 0; // or handle error
+    }
+    uint16_t value = Wire.read();
+    value <<= 8;
+    value |= Wire.read();
+    return value;
 }
 
 //configure a measurement

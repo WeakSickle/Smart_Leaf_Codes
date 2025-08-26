@@ -67,7 +67,6 @@ void FDC1004::fdcRead() {
 
     configureMeasurementSingle(measurement, channel, capdac);
     triggerSingleMeasurement(measurement, FDC1004_100HZ);
-    Serial.print("Configure Settings");
     //wait for completion
     delay(15);
     uint16_t value[2];
@@ -77,8 +76,6 @@ void FDC1004::fdcRead() {
       rawCapacitance[i] /= 1000;                                        //in femtofarads
       rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
       capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
-      Serial.print("Capacitance: ");
-      Serial.println(capacitance[i]);
 
 
       if (msb > UPPER_BOUND)  // adjust capdac accordingly
@@ -104,12 +101,6 @@ float FDC1004::fdcReadAverageOne() {
     fdcRead();
     average[0] += capacitance[0];
   }
-
-  Serial.println("Average capacitance readings:");
-  Serial.print("Channel 1: ");
-  Serial.print(average[0] / 10);
-  Serial.println(" pF");
-
   return average[0] / 10;
 
 }
@@ -122,11 +113,6 @@ float FDC1004::fdcReadAverageTwo() {
     fdcRead();
     average[1] += capacitance[1];
   }
-
-  Serial.print("Channel 2: ");
-  Serial.print(average[1] / 10);
-  Serial.println(" pF");
-
   return average[1] /10;
 
 }
@@ -148,17 +134,18 @@ void FDC1004::write16(uint8_t reg, uint16_t data)
 
 uint16_t FDC1004::read16(uint8_t reg)
 {
-  Wire.beginTransmission(_addr);
-  Wire.write(reg);
-  Wire.endTransmission();
-  uint16_t value;
-  Wire.beginTransmission(_addr);
-  Wire.requestFrom(_addr, (uint8_t)2);
-  value = Wire.read();
-  value <<= 8;
-  value |= Wire.read();
-  Wire.endTransmission();
-  return value;
+    Wire.beginTransmission(_addr);
+    Wire.write(reg);
+    Wire.endTransmission(false); // Send a restart, not a stop
+
+    Wire.requestFrom(_addr, (uint8_t)2);
+    if (Wire.available() < 2) {
+        return 0; // or handle error
+    }
+    uint16_t value = Wire.read();
+    value <<= 8;
+    value |= Wire.read();
+    return value;
 }
 
 //configure a measurement
@@ -200,7 +187,6 @@ uint8_t FDC1004::triggerSingleMeasurement(uint8_t measurement, uint8_t rate)
  */
 uint8_t FDC1004::readMeasurement(uint8_t measurement, uint16_t * value)
 {
-Serial.print("Read Measurement");
     if (!FDC1004_IS_MEAS(measurement)) {
         Serial.println("bad read request");
         return 1;

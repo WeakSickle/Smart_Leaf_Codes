@@ -28,7 +28,9 @@ const uint64_t minutesToSleep = 1;
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
 #define LOWER_BOUND (-1 * UPPER_BOUND)
-// #define USE_FDC // Use the FDC1004 sensor
+#define USE_FDC // Use the FDC1004 sensor
+int waterVolumeOne;
+int waterVolumeTwo;
 
 // Defining the radio module and GPS
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
@@ -327,8 +329,8 @@ case SENSOR_DATA:
   Serial.println(channelOne);
   Serial.print("Channel 2: ");
   Serial.println(channelTwo);
-  int waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
-  int waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
+  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
+  waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
   Serial.print("Water Volume 1: ");
   Serial.println(waterVolumeOne);
   Serial.print("Water Volume 2: ");
@@ -340,6 +342,17 @@ case SENSOR_DATA:
   #ifdef USE_SOIL
     // Reads the soil sensor and save the data 
     FourParam.readSensor(resp);
+    bool result = FourParam.readSensor(resp);
+    if (result) {
+      Serial.print("Temperature: ");
+      Serial.println(FourParam.GetTemperature(resp));
+      Serial.print("Moisture: ");
+      Serial.println(FourParam.GetMoisture(resp));
+      Serial.print("EC: ");
+      Serial.println(FourParam.GetEC(resp));
+      Serial.print("PH: ");
+      Serial.println(FourParam.GetPH(resp));
+    }
   #endif
   currentState = PMU_INFO; // Move to the next state
   break;
@@ -386,22 +399,32 @@ case TRANSMIT:
 #endif
 
   Serial.println("Transmitting data ... ");
-  // Read each of the parts from the struct adn put it into a string with
-  // commas in between
-  // String Time = String(data.year) + "," + String(data.month) + "," +
-  // String(data.day) + "," + String(data.hour) + "," +
-  //     String(data.minute) + "," + String(data.second);
-  // String Position = String(data.latitude) + "," + String(data.longitude) +
-  //                   "," + String(data.altitude);
-  // String Battery = String(data.batteryVoltage) + "," +
-  //                  String(data.batteryPercentage) + "," +
-  //                  String(data.isCharging);
-  // String message = String(data.ID) + "," + Position + "," + Battery; // Combine the two strings into one message
-  
-  String message = FormatMessage(data); // Format the message using the function instead cleaner
-  
-  Serial.print("Message to send: ");
-  Serial.println(message);
+  // Compose each part of the message from previously set variables
+String Time = String(data.year) + "," + String(data.month) + "," +
+              String(data.day) + "," + String(data.hour) + "," +
+              String(data.minute) + "," + String(data.second);
+
+String Position = String(data.latitude) + "," + String(data.longitude) +
+                  "," + String(data.altitude);
+
+String Battery = String(data.batteryVoltage) + "," +
+                 String(data.batteryPercentage) + "," +
+                 String(data.isCharging);
+
+// FDC water volume readings (assume waterVolumeOne and waterVolumeTwo are set in SENSOR_DATA)
+String FDC_Water = String(waterVolumeOne) + "," + String(waterVolumeTwo);
+
+// Soil sensor readings (assume FourParam and resp are set in SENSOR_DATA)
+String Soil = String(FourParam.GetTemperature(resp)) + "," +
+              String(FourParam.GetMoisture(resp)) + "," +
+              String(FourParam.GetEC(resp)) + "," +
+              String(FourParam.GetPH(resp));
+
+// Combine everything into one message
+String message = String(data.ID) + "," + Time + "," + Position + "," + Battery + "," + FDC_Water + "," + Soil;
+
+Serial.print("Message to send: ");
+Serial.println(message);
 
   unsigned long startTime = millis();
   unsigned long endTime = startTime + TRANSMISSION_DURATION_MS;

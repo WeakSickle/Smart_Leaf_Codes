@@ -22,6 +22,7 @@ class SoilSensor {
     bool sendPacket(uint8_t *data, uint8_t len);
     uint16_t crc16(uint8_t *buf, uint8_t len);
     bool readResponse(uint8_t *buf, uint8_t len, uint16_t timeout_ms);
+    bool findAddress(); // Scan for the sensor address
   public:
     SoilSensor(uint8_t address = 0x08) : DeviceAddress(address) {};
 
