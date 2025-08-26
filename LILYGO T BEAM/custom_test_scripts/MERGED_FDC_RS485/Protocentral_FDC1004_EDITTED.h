@@ -67,6 +67,7 @@ class FDC1004
     uint8_t triggerSingleMeasurement(uint8_t measurement, uint8_t rate);
     uint8_t readMeasurement(uint8_t measurement, uint16_t * value);
     uint8_t measureChannel(uint8_t channel, uint8_t capdac, uint16_t * value);
+    void fdcReadAverage();
     void fdcRead();
     uint16_t read16(uint8_t reg);
 

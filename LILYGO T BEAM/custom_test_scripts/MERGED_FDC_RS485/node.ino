@@ -66,7 +66,7 @@ struct TRANSMIT_DATA
 };
 
 // FDC 4 channel initialisation
-FDC1004 FDC;
+// FDC1004 FDC;
 
 
 TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
@@ -135,8 +135,8 @@ void loop()
       Serial.println(FourParam.GetPH(resp));
     }
 
-  FDC.fdcRead(); // Read the FDC data
-  FDC.fdcReadAverage(); // Average the FDC data then print it
+  // FDC.fdcRead(); // Read the FDC data
+  // FDC.fdcReadAverage(); // Average the FDC data then print it
   delay(2000);
 
 }

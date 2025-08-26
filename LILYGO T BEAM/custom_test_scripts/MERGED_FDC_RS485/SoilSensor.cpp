@@ -9,6 +9,14 @@ void SoilSensor::begin() {
     delay(3000); // Allow time for sensor to stabilise on startup
     Serial.print("Soil Sensor initialized at address: ");
     Serial.println(this->DeviceAddress, HEX);
+
+
+    if (findAddress()) {
+        Serial.print("Soil Sensor initialized at address: ");
+        Serial.println(this->DeviceAddress, HEX);
+    } else {
+        Serial.println("No soil sensor found!");
+    }
     
 }
 
@@ -143,4 +151,30 @@ uint16_t SoilSensor::crc16(uint8_t *buf, uint8_t len) {
     }
   }
   return crc;
+}
+
+
+bool SoilSensor::findAddress() {
+    uint8_t response[13];
+    for (uint8_t addr = 1; addr <= 247; addr++) {
+        uint8_t request[8] = {addr, 0x03, 0x00, 0x00, 0x00, 0x04, 0, 0};
+        uint16_t crc = crc16(request, 6);
+        request[6] = crc & 0xFF;
+        request[7] = crc >> 8;
+
+        sendPacket(request, 8);
+        delay(150);
+
+        if (readResponse(response, 13, 500)) {
+            uint16_t resp_crc = (response[12] << 8) | response[11];
+            uint16_t calc_crc = crc16(response, 11);
+            if (resp_crc == calc_crc && response[1] == 0x03) {
+                Serial.print("Sensor address detected: ");
+                Serial.println(addr);
+                this->DeviceAddress = addr;
+                return true;
+            }
+        }
+    }
+    return false;
 }

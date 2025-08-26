@@ -24,7 +24,7 @@ class SoilSensor {
     bool readResponse(uint8_t *buf, uint8_t len, uint16_t timeout_ms);
   public:
     SoilSensor(uint8_t address = 0x08) : DeviceAddress(address) {};
-
+    bool findAddress();
     void begin();
     bool readSensor(uint8_t (&respone)[13]);
     uint16_t GetTemperature(uint8_t (&response)[13]);

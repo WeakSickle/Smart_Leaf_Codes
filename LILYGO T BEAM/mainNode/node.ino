@@ -28,7 +28,7 @@ const uint64_t minutesToSleep = 1;
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
 #define LOWER_BOUND (-1 * UPPER_BOUND)
-#define USE_FDC // Use the FDC1004 sensor
+// #define USE_FDC // Use the FDC1004 sensor
 
 // Defining the radio module and GPS
 SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
@@ -320,10 +320,20 @@ case SENSOR_DATA:
   // Moisture Sensors
   #ifdef USE_FDC
   FDC.fdcRead(); // Read the FDC data
+  Serial.println("FDC Readings: ");
   float channelOne = FDC.fdcReadAverageOne(); // Average the FDC data then print it
   float channelTwo = FDC.fdcReadAverageTwo();
+  Serial.print("Channel 1: ");
+  Serial.println(channelOne);
+  Serial.print("Channel 2: ");
+  Serial.println(channelTwo);
   int waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
   int waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
+  Serial.print("Water Volume 1: ");
+  Serial.println(waterVolumeOne);
+  Serial.print("Water Volume 2: ");
+  Serial.println(waterVolumeTwo);
+
   delay(2000);
   #endif
 

@@ -51,14 +51,19 @@ void FDC1004::write16(uint8_t reg, uint16_t data)
 uint16_t FDC1004::read16(uint8_t reg)
 {
   Wire.beginTransmission(_addr);
+  Serial.println("1");
   Wire.write(reg);
+  Serial.println("2");
   Wire.endTransmission();
+  Serial.println("3");
   uint16_t value;
   Wire.beginTransmission(_addr);
+  Serial.println("4");
   Wire.requestFrom(_addr, (uint8_t)2);
   value = Wire.read();
   value <<= 8;
   value |= Wire.read();
+  Serial.println("5");
   Wire.endTransmission();
   return value;
 }
@@ -119,6 +124,8 @@ uint8_t FDC1004::readMeasurement(uint8_t measurement, uint16_t * value)
   uint16_t lsb = read16(MEAS_LSB[measurement]);
   value[0] = msb;
   value[1] = lsb;
+  Serial.print(value[0]);
+  Serial.print(value[1]);
   //store the capdac value
 
   return 0;

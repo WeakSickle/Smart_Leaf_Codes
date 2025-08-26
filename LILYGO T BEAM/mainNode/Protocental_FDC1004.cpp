@@ -38,7 +38,7 @@ uint8_t MEAS_LSB[] = {0x01, 0x03, 0x05, 0x07};
 uint8_t SAMPLE_DELAY[] = {11,11,6,3};
 
 
-uint8_t convertCapacitanceToWaterVolume(float capacitance, int sensorNumber) {
+uint8_t FDC1004::convertCapacitanceToWaterVolume(float capacitance, int sensorNumber) {
   // Conversion logic based on sensor calibration
   // This is a placeholder implementation
   if (sensorNumber == 1) {
@@ -67,7 +67,7 @@ void FDC1004::fdcRead() {
 
     configureMeasurementSingle(measurement, channel, capdac);
     triggerSingleMeasurement(measurement, FDC1004_100HZ);
-
+    Serial.print("Configure Settings");
     //wait for completion
     delay(15);
     uint16_t value[2];
@@ -77,6 +77,9 @@ void FDC1004::fdcRead() {
       rawCapacitance[i] /= 1000;                                        //in femtofarads
       rawCapacitance[i] += ((int32_t)3028) * ((int32_t)capdac);
       capacitance[i] = (float)rawCapacitance[i] / 1000; //in picofarads
+      Serial.print("Capacitance: ");
+      Serial.println(capacitance[i]);
+
 
       if (msb > UPPER_BOUND)  // adjust capdac accordingly
       {
@@ -86,6 +89,8 @@ void FDC1004::fdcRead() {
         if (CAPDAC[i] > 0)
           CAPDAC[i]--;
       }
+    } else {
+      Serial.println("Measurement failed");
     }
   }
 }
@@ -105,6 +110,8 @@ float FDC1004::fdcReadAverageOne() {
   Serial.print(average[0] / 10);
   Serial.println(" pF");
 
+  return average[0] / 10;
+
 }
 
 float FDC1004::fdcReadAverageTwo() {
@@ -119,6 +126,8 @@ float FDC1004::fdcReadAverageTwo() {
   Serial.print("Channel 2: ");
   Serial.print(average[1] / 10);
   Serial.println(" pF");
+
+  return average[1] /10;
 
 }
 
@@ -191,7 +200,7 @@ uint8_t FDC1004::triggerSingleMeasurement(uint8_t measurement, uint8_t rate)
  */
 uint8_t FDC1004::readMeasurement(uint8_t measurement, uint16_t * value)
 {
-
+Serial.print("Read Measurement");
     if (!FDC1004_IS_MEAS(measurement)) {
         Serial.println("bad read request");
         return 1;
