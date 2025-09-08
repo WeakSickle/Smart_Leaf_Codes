@@ -17,18 +17,19 @@
 
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
-#define USE_DISPLAY // Use the oled display
-#define USE_SOIL // Use the soil sensor
+// #define USE_DISPLAY // Use the oled display
+// #define USE_SOIL // Use the soil sensor
+// #define USE_FDC // Use the FDC1004 sensor
 #define USE_SLEEP
 
-const unsigned long TRANSMISSION_DURATION_MS = 60000;
+const unsigned long TRANSMISSION_DURATION_MS = 10000;
 const uint64_t minutesToSleep = 1;
 
 
 // Setup for the FDC
 #define UPPER_BOUND 0X4000  // max readout capacitance
 #define LOWER_BOUND (-1 * UPPER_BOUND)
-#define USE_FDC // Use the FDC1004 sensor
+
 int waterVolumeOne;
 int waterVolumeTwo;
 
@@ -97,7 +98,7 @@ void DISPLAY_STATE()
 void setup()
 {
   data.ID = NODE_ID;
-
+  // PMU->enablePowerOutput(XPOWERS_ALDO1); // Enable power for the soil and capacitive sensor
   setupBoards(); // Setup the Board (pretty sure its the pins)
 
   delay(1500);
@@ -154,11 +155,12 @@ void setup()
   checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER), "Selected output power is invalid for this module!");
 
   ///////
+  // radio.sleep(); // Put the radio to sleep to save power
   Serial.print(F("Passed Radio Setup ... "));
   ///////
                 // Start the I2C bus
   GPS.begin(SerialGPS);           // Start the GPS module
-
+  Serial.print(F("Passed GPS Setup ... "));
   #ifdef USE_SOIL
     FourParam.begin(); // Initialize the soil sensor
   #endif
@@ -168,15 +170,19 @@ void setup()
   // GPS.saveConfiguration(); //Save the current settings to flash and BBR
   Serial.print(F("Passed GPS ... "));
 // (probably un comment if works)
-
+  u8g2->begin();
 #ifdef USE_DISPLAY
-  u8g2->begin();                       // Initialize the display
+  // Initialize the display
   u8g2->setFont(u8g2_font_ncenB08_tr); // Set a readable font
+#else 
+Serial.println("Not using display");
+u8g2->setPowerSave(1); // Turn off the display if not used
 #endif
 
 #ifdef LOW_POWER_CONFIG
   pinMode(GPS_WAKEUP_PIN, OUTPUT);   // Set the GPS wakeup pin as output
   digitalWrite(GPS_WAKEUP_PIN, LOW); // Put the GPS to sleep
+  radio.sleep();
 #endif
 
 }
@@ -199,6 +205,7 @@ void loop()
 #endif
 
 #ifdef LOW_POWER_CONFIG
+// radio.sleep();
 //  radio.startReceiveDutyCycle(); // This makes the radio turn on an off periodically there is calculator for
 // esp_deep_sleep_start();  // Put the ESP32 into deep sleep mode until a packet is received
 #endif
@@ -217,7 +224,7 @@ void loop()
         DISPLAY_STATE();
     #endif
 
-    const unsigned long timeout = 30000;
+    const unsigned long timeout = 10000;
     unsigned long startTime = millis();
     bool gpsLockAcquired = false;
 
@@ -307,7 +314,7 @@ case GPS_NO_LOCK:
 
   Serial.println("No GPS Lock acquired!");
   currentState = SENSOR_DATA; // Move to the next state
-  delay(5000);
+  // delay(5000);
   break;
 }
 case SENSOR_DATA:
@@ -335,7 +342,7 @@ case SENSOR_DATA:
   Serial.print("Water Volume 2: ");
   Serial.println(waterVolumeTwo);
 
-  delay(2000);
+  // delay(2000);
   #endif
 
   #ifdef USE_SOIL
@@ -392,7 +399,7 @@ case PMU_INFO:
   data.isCharging = chargingStatus;
 
   currentState = TRANSMIT; // Move to the next state
-  delay(1000);
+  // delay(1000);
   break;
 }
 case TRANSMIT:
@@ -400,7 +407,7 @@ case TRANSMIT:
 #ifdef USE_DISPLAY
   DISPLAY_STATE(); // Display the current state on the screen
 #endif
-
+  radio.standby(); // Wake the radio up and put in standby mode
   Serial.println("Transmitting data ... ");
 
 String message = FormatMessage(data); // Format the data into a string for transmission
@@ -433,32 +440,15 @@ Serial.println(message);
     }
   }
     
-  // if (transmittedFlag)
-  // {
-  //   transmittedFlag = false; // Reset the flag
-
-  //   if (transmissionState == RADIOLIB_ERR_NONE)
-  //   {
-  //     // packet was successfully sent
-  //     Serial.println(F("transmission finished!"));
-  //     // NOTE: when using interrupt-driven transmit method,
-  //     //       it is not possible to automatically measure
-  //     //       transmission data rate using getDataRate()
-  //   }
-  //   else
-  //   {
-  //     Serial.print(F("failed, code "));
-  //     Serial.println(transmissionState);
-  //   }
-
-  //   transmissionState = radio.startTransmit(message); // Transmit the message, may need a check to ensure the message is finished
-  //   // Transmitt
-  //   Serial.print("MESSAGE SENT: ");
-  //   Serial.println(message);
-  // }
   currentState = STANDBY; // Move back to standby state
-  delay(5000);
-  sleepDevice(60); // Sleep for the defined time
+  radio.sleep();
+  bool result = GPS.powerOff(10); // Power down the GPS to save power
+  disablePeripherals();
+  PMU->enablePowerOutput(XPOWERS_BLDO2);
+  Serial.println("GPS powered down: " + String(result));
+  delay(1000);
+  sleepDevice(10); // Sleep for the defined time
+  // beginPower(); // Re-enable the power for the sensors
   break;
 }
 }

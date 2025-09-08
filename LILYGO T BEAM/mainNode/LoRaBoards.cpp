@@ -94,7 +94,7 @@
  
      pinMode(PMU_IRQ, INPUT_PULLUP);
      attachInterrupt(PMU_IRQ, setPmuFlag, FALLING);
- 
+     
      if (PMU->getChipModel() == XPOWERS_AXP192) {
  
          PMU->setProtectedChannel(XPOWERS_DCDC3);
@@ -215,9 +215,11 @@
  
  
          //not use channel
+         PMU->disablePowerOutput(XPOWERS_BLDO2);
          PMU->disablePowerOutput(XPOWERS_DCDC2);
-         // PMU->disablePowerOutput(XPOWERS_DCDC4);
-         // PMU->disablePowerOutput(XPOWERS_DCDC5);
+         PMU->disablePowerOutput(XPOWERS_BLDO1);
+        //  PMU->disablePowerOutput(XPOWERS_DCDC4);
+         PMU->disablePowerOutput(XPOWERS_DCDC5);
          PMU->disablePowerOutput(XPOWERS_DLDO1);
          PMU->disablePowerOutput(XPOWERS_DLDO2);
          PMU->disablePowerOutput(XPOWERS_VBACKUP);
@@ -267,6 +269,7 @@
          PMU->disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
          // Clear all interrupt flags
          PMU->clearIrqStatus();
+         
          // Enable the required interrupt function
          PMU->enableIRQ(
              XPOWERS_AXP2101_BAT_INSERT_IRQ    | XPOWERS_AXP2101_BAT_REMOVE_IRQ      |   //BATTERY
@@ -379,6 +382,8 @@
          PMU->disablePowerOutput(XPOWERS_ALDO2);
          // GNSS VDD
          PMU->disablePowerOutput(XPOWERS_ALDO3);
+         // Disable Soil and Capcacitive Sensor Power
+        //  PMU->disablePowerOutput(XPOWERS_ALDO1);
  
      } else if (PMU->getChipModel() == XPOWERS_AXP192) {
  
@@ -614,8 +619,9 @@
  
  void setupBoards(bool disable_u8g2 )
  {
-     Serial.begin(115200);
- 
+     
+    Serial.begin(115200);
+    
      // while (!Serial);
  
      Serial.println("setupBoards");
@@ -719,7 +725,7 @@
      digitalWrite(RADIO_CTRL, LOW);
  #endif
  
-     beginPower();
+    beginPower();
  
      beginSDCard();
  
@@ -1244,11 +1250,15 @@ uint64_t currentTime = millis();
     // 2. VERIFY the source was set correctly right before sleep
     Serial.print("(Should be 0) Clock source set to: ");
     Serial.println(rtc_clk_slow_freq_get()); // We want this to be 1 now!
+    PMU->enableSleep();
+
 
     // 3. Only then set the wakeup time and go to sleep
     esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000); // 5 seconds
+    
     Serial.println("Entering deep sleep...");
     Serial.flush();
+
     esp_deep_sleep_start();  // Start deep sleep
 
 }
