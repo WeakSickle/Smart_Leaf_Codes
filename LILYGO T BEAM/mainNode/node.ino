@@ -156,8 +156,7 @@ void setup()
   ///////
   Serial.print(F("Passed Radio Setup ... "));
   ///////
-
-  Wire.begin();                   // Start the I2C bus
+                // Start the I2C bus
   GPS.begin(SerialGPS);           // Start the GPS module
 
   #ifdef USE_SOIL
@@ -459,6 +458,7 @@ Serial.println(message);
   // }
   currentState = STANDBY; // Move back to standby state
   delay(5000);
+  sleepDevice(60); // Sleep for the defined time
   break;
 }
 }

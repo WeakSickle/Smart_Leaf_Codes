@@ -1234,4 +1234,24 @@
  
  #endif /*ARDUINO_ARCH_ESP32*/
  
+void sleepDevice(uint64_t sleepSeconds) {
+//   // Put MCU to sleep (implementation depends on your board)
+//   // ESP32/ESP8266 version:
+uint64_t currentTime = millis();
+
+    Serial.println("Preparing to enter deep sleep...");
+
+    // 2. VERIFY the source was set correctly right before sleep
+    Serial.print("(Should be 0) Clock source set to: ");
+    Serial.println(rtc_clk_slow_freq_get()); // We want this to be 1 now!
+
+    // 3. Only then set the wakeup time and go to sleep
+    esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000); // 5 seconds
+    Serial.println("Entering deep sleep...");
+    Serial.flush();
+    esp_deep_sleep_start();  // Start deep sleep
+
+}
+
+
  

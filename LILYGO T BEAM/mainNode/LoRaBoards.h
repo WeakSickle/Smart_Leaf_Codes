@@ -102,6 +102,8 @@
  void loopPMU(void (*pressed_cb)(void));
  
  void scanWiFi();
+
+ void sleepDevice(uint64_t sleepSeconds);
  
  #ifdef HAS_PMU
  extern XPowersLibInterface *PMU;
