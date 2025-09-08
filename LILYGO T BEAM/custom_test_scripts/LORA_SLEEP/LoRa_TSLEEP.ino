@@ -10,9 +10,10 @@
    For full API reference, see the GitHub Pages
    https://jgromes.github.io/RadioLib/
 */
-
+#include "soc/rtc.h"
 #include "LoRaBoards.h"
 #include <RadioLib.h>
+
 
 #if     defined(USING_SX1276)
 #ifndef CONFIG_RADIO_FREQ
@@ -163,7 +164,7 @@ void setup()
     */
     delay(1000);
 
-    drawMain();
+    //drawMain();
 }
 
 void loop()
@@ -191,6 +192,7 @@ void loop()
         }
 
 
+        // drawMain();
         drawMain();
         // wait a second before transmitting again
         delay(1000);
@@ -209,7 +211,13 @@ void loop()
         */
 
         // Put radio and MCU to sleep
-        sleepDevice(1); // Sleep for # seconds
+
+        // uint64_t start = esp_timer_get_time();  // µs since boot
+        // vTaskDelay(pdMS_TO_TICKS(60000));        // delay 5 sec
+        // uint64_t end = esp_timer_get_time();
+
+        // ESP_LOGI("TIMER", "Expected ~5000000 us, got %llu us", (end - start));
+        sleepDevice(60); // Sleep for # seconds
 
     }
 }
@@ -223,22 +231,24 @@ void drawMain()
 
         u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
         u8g2->setCursor(22, 25);
-        u8g2->print("TX:");
-        u8g2->setCursor(22, 40);
-        u8g2->print("STATE:");
+        u8g2->print("AWAKE");
+        delay(1000); // Just to see the change
 
-        u8g2->setFont(u8g2_font_crox1h_tr);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 25 );
-        u8g2->print(payload);
-        String state = transmissionState == RADIOLIB_ERR_NONE ? "NONE" : String(transmissionState);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(state.c_str()) -  21, 40 );
-        u8g2->print(state);
+        // u8g2->setCursor(22, 40);
+        // u8g2->print("STATE:");
+
+        // u8g2->setFont(u8g2_font_crox1h_tr);
+        // u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 25 );
+        // u8g2->print(payload);
+        // String state = transmissionState == RADIOLIB_ERR_NONE ? "NONE" : String(transmissionState);
+        // u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(state.c_str()) -  21, 40 );
+        // u8g2->print(state);
         u8g2->sendBuffer();
     }
 }
 
 // New sleep function using RadioLib
-void sleepDevice(uint32_t sleepSeconds) {
+void sleepDevice(uint64_t sleepSeconds) {
 
     // Check for transmissions,
     // If received then do not sleep
@@ -252,24 +262,46 @@ void sleepDevice(uint32_t sleepSeconds) {
   Serial.println(digitalRead(RADIO_BUSY_PIN));
   
   // Put the radio to sleep
-  radio.sleep();
+  uint64_t start = esp_timer_get_time();  // µs since boot
+  uint64_t time = start + uint64_t(4000000); // 4 seconds to go to sleep
     
   delay(100);
   Serial.print("BUSY pin state (sleep): ");
   Serial.println(digitalRead(RADIO_BUSY_PIN));
 
+  u8g2->drawRFrame(0, 0, 128, 64, 5);
+  u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
+  u8g2->setCursor(22, 25);
+  u8g2->print("SLEEP");
+  u8g2->sendBuffer();
 //   // Put MCU to sleep (implementation depends on your board)
 //   // ESP32/ESP8266 version:
-//   #if defined(ESP32) || defined(ESP8266)
-//     esp_sleep_enable_timer_wakeup(sleepSeconds * 1000000);
-//     esp_deep_sleep_start();
-  
+uint64_t currentTime = millis();
+  #if defined(ESP32) || defined(ESP8266)
+    delay(2000); // Wait for 2 seconds before sleeping
+    Serial.println("Configuring external 32K crystal for deep sleep...");
+    rtc_clk_32k_enable(true);
+    rtc_clk_32k_bootstrap(512);
+    delay(150);
+    rtc_clk_slow_freq_set(RTC_SLOW_FREQ_RTC);
+    delay(10);
+
+    // 2. VERIFY the source was set correctly right before sleep
+    Serial.print("Clock source set to: ");
+    Serial.println(rtc_clk_slow_freq_get()); // We want this to be 1 now!
+
+    // 3. Only then set the wakeup time and go to sleep
+    esp_sleep_enable_timer_wakeup(60 * 1000000); // 5 seconds
+    Serial.println("Entering deep sleep...");
+    Serial.flush();
+    esp_deep_sleep_start();  // Start deep sleep
+
 //   // Arduino AVR version:
-//   #else
-//     for (uint32_t i = 0; i < sleepSeconds; i++) {
-//       LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF); 
-//     }
-//   #endif
+  #else
+    for (uint32_t i = 0; i < sleepSeconds; i++) {
+      LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF); 
+    }
+  #endif
 
     
   delay(5000);
@@ -279,7 +311,7 @@ void sleepDevice(uint32_t sleepSeconds) {
   // Reapply your radio settings if needed
   //radio.setFrequency(CONFIG_RADIO_FREQ);
   
-  //setup(); // regain all settings
+  setup(); // regain all settings
 
   // When we wake up
   Serial.println(F("Waking up!"));

@@ -763,6 +763,7 @@ void setupBoards(bool disable_u8g2 )
 
 #ifdef T_BEAM_S3_SUPREME
     enable_slow_clock();
+    Serial.println("Using slow clock . ");
 #endif
 
 #endif
@@ -1182,6 +1183,7 @@ static void enable_slow_clock()
         Serial.println("Warning: Failed to set rtc clk to 32.768Khz !!! "); return;
     }
     deviceOnline |= OSC32768_ONLINE;
+    delay(2000); // Wait for the crystal to stabilize
 }
 
 
