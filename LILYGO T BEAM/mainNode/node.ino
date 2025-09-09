@@ -17,13 +17,13 @@
 
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
-// #define USE_DISPLAY // Use the oled display
-// #define USE_SOIL // Use the soil sensor
-// #define USE_FDC // Use the FDC1004 sensor
+//#define USE_DISPLAY // Use the oled display
+#define USE_SOIL // Use the soil sensor
+#define USE_FDC // Use the FDC1004 sensor
 #define USE_SLEEP
 
-const unsigned long TRANSMISSION_DURATION_MS = 10000;
-const uint64_t minutesToSleep = 1;
+const unsigned long TRANSMISSION_DURATION_MS = 30000;
+const uint64_t secondsToSleep = 60;
 
 
 // Setup for the FDC
@@ -442,13 +442,9 @@ Serial.println(message);
     
   currentState = STANDBY; // Move back to standby state
   radio.sleep();
-  bool result = GPS.powerOff(10); // Power down the GPS to save power
-  disablePeripherals();
-  PMU->enablePowerOutput(XPOWERS_BLDO2);
+  bool result = GPS.powerOff(secondsToSleep); // Power down the GPS to save power
   Serial.println("GPS powered down: " + String(result));
-  delay(1000);
-  sleepDevice(10); // Sleep for the defined time
-  // beginPower(); // Re-enable the power for the sensors
+  sleepDevice(secondsToSleep); // Sleep for the defined time
   break;
 }
 }

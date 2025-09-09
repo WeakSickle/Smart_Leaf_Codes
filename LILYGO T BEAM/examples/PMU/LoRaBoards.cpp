@@ -187,20 +187,18 @@ bool beginPower()
             delay(250);
         }
 
+        PMU->setPowerChannelVoltage(XPOWERS_BLDO1, 3300);
+        PMU->enablePowerOutput(XPOWERS_BLDO1);
+
+        PMU->setPowerChannelVoltage(XPOWERS_BLDO2, 3300);
+        PMU->enablePowerOutput(XPOWERS_BLDO2);
+
         // Sensor
         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO1);
 
         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
         PMU->enablePowerOutput(XPOWERS_ALDO2);
-
-        //Sdcard
-
-        PMU->setPowerChannelVoltage(XPOWERS_BLDO1, 3300);
-        PMU->enablePowerOutput(XPOWERS_BLDO1);
-
-        PMU->setPowerChannelVoltage(XPOWERS_BLDO2, 3300);
-        PMU->enablePowerOutput(XPOWERS_BLDO2);
 
         //face m.2
         PMU->setPowerChannelVoltage(XPOWERS_DCDC3, 3300);
@@ -211,7 +209,6 @@ bool beginPower()
 
         PMU->setPowerChannelVoltage(XPOWERS_DCDC5, 3300);
         PMU->enablePowerOutput(XPOWERS_DCDC5);
-
 
         //not use channel
         PMU->disablePowerOutput(XPOWERS_DCDC2);

@@ -187,14 +187,7 @@
              PMU->disablePowerOutput(XPOWERS_BLDO1);
              delay(250);
          }
- 
-         // Sensor
-         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 3300);
-         PMU->enablePowerOutput(XPOWERS_ALDO1);
- 
-         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
-         PMU->enablePowerOutput(XPOWERS_ALDO2);
- 
+
          //Sdcard
  
          PMU->setPowerChannelVoltage(XPOWERS_BLDO1, 3300);
@@ -202,6 +195,13 @@
  
          PMU->setPowerChannelVoltage(XPOWERS_BLDO2, 3300);
          PMU->enablePowerOutput(XPOWERS_BLDO2);
+ 
+         // Sensor
+         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 3300);
+         PMU->enablePowerOutput(XPOWERS_ALDO1);
+ 
+         PMU->setPowerChannelVoltage(XPOWERS_ALDO2, 3300);
+         PMU->enablePowerOutput(XPOWERS_ALDO2);
  
          //face m.2
          PMU->setPowerChannelVoltage(XPOWERS_DCDC3, 3300);
@@ -215,14 +215,13 @@
  
  
          //not use channel
-         PMU->disablePowerOutput(XPOWERS_BLDO2);
          PMU->disablePowerOutput(XPOWERS_DCDC2);
-         PMU->disablePowerOutput(XPOWERS_BLDO1);
         //  PMU->disablePowerOutput(XPOWERS_DCDC4);
-         PMU->disablePowerOutput(XPOWERS_DCDC5);
+         //  PMU->disablePowerOutput(XPOWERS_DCDC5);
          PMU->disablePowerOutput(XPOWERS_DLDO1);
          PMU->disablePowerOutput(XPOWERS_DLDO2);
          PMU->disablePowerOutput(XPOWERS_VBACKUP);
+         PMU->disablePowerOutput(XPOWERS_BLDO2);
  
  
  #elif defined(T_BEAM_S3_BPF)
@@ -383,7 +382,10 @@
          // GNSS VDD
          PMU->disablePowerOutput(XPOWERS_ALDO3);
          // Disable Soil and Capcacitive Sensor Power
-        //  PMU->disablePowerOutput(XPOWERS_ALDO1);
+         //PMU->disablePowerOutput(XPOWERS_ALDO1);
+         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 500);
+         
+        PMU->disablePowerOutput(XPOWERS_DCDC5);
  
      } else if (PMU->getChipModel() == XPOWERS_AXP192) {
  
@@ -395,6 +397,7 @@
          PMU->disablePowerOutput(XPOWERS_LDO2);
          // GNSS VDD
          PMU->disablePowerOutput(XPOWERS_LDO3);
+         
  
  
      }
@@ -727,7 +730,7 @@
  
     beginPower();
  
-     beginSDCard();
+    //  beginSDCard();
  
      if (!disable_u8g2) {
          beginDisplay();
@@ -1258,6 +1261,23 @@ uint64_t currentTime = millis();
     
     Serial.println("Entering deep sleep...");
     Serial.flush();
+     // Disable power for the GNSS module
+    // Disable power for the soil and capacitive sensor
+    disablePeripherals();
+
+    // Configure RTC peripherals to stay powered during deep sleep
+    Serial.print("Sleep RTC peripherals: ");
+    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF)); // Keep RTC peripherals on
+
+    // Configure RTC slow memory to power down during deep sleep
+    Serial.print("Sleep RTC slow memory: ");
+    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF)); // Power down RTC slow memory
+
+    // Configure RTC fast memory to auto power down
+    Serial.print("Sleep RTC fast memory: ");
+    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF)); // Auto power down RTC fast memory  
+
+
 
     esp_deep_sleep_start();  // Start deep sleep
 
