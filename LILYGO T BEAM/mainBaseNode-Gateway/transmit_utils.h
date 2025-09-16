@@ -16,6 +16,8 @@ struct TRANSMIT_DATA
   float latitude;
   float longitude;
   float altitude;
+  uint8_t waterOne;
+  uint8_t waterTwo;
   uint16_t Temperature;
   uint16_t Moisture;
   uint16_t EC;
@@ -26,39 +28,17 @@ struct TRANSMIT_DATA
 };
 
 // Function to format the data into a string for transmission
-String FormatMessage(const TRANSMIT_DATA &data) {
-  String message = String(data.ID) + "," +
-                   String(data.year) + "," +
-                   String(data.month) + "," +
-                   String(data.day) + "," +
-                   String(data.hour) + "," +
-                   String(data.minute) + "," +
-                   String(data.second) + "," +
-                   String(data.latitude, 6) + "," +
-                   String(data.longitude, 6) + "," +
-                   String(data.altitude, 2) + "," +
-                   String(data.Temperature) + "," +
-                   String(data.Moisture) + "," +
-                   String(data.EC) + "," +
-                   String(data.PH) + "," +
-                   (data.isCharging ? "1" : "0") + "," +
-                   String(data.batteryVoltage) + "," +
-                   String(data.batteryPercentage);
-  return message;
-}
-
-// Function to decode the message from the recieved string to struct
 TRANSMIT_DATA DecodeMessage(const String& message) {
   TRANSMIT_DATA data;
   int index = 0;
   int from = 0;
   int to = 0;
 
-  String parts[17];
+  String parts[19];
 
-  for (int i = 0; i < 17; i++) {
+  for (int i = 0; i < 19; i++) {
     to = message.indexOf(',', from);
-    if (to == -1 && i < 16) break;  // Not enough parts
+    if (to == -1 && i < 18) break;  // Not enough parts
     if (to == -1) to = message.length(); // Last part
 
     parts[i] = message.substring(from, to);
@@ -75,18 +55,20 @@ TRANSMIT_DATA DecodeMessage(const String& message) {
   data.latitude = parts[7].toFloat();
   data.longitude = parts[8].toFloat();
   data.altitude = parts[9].toFloat();
-  data.Temperature = parts[10].toInt();
-  data.Moisture = parts[11].toInt();
-  data.EC = parts[12].toInt();
-  data.PH = parts[13].toInt();
-  data.isCharging = (parts[14] == "1");
-  data.batteryVoltage = parts[15].toInt();
-  data.batteryPercentage = parts[16].toInt();
+  data.waterOne = parts[10].toInt();   
+  data.waterTwo = parts[11].toInt();   
+  data.Temperature = parts[12].toInt();
+  data.Moisture = parts[13].toInt();
+  data.EC = parts[14].toInt();
+  data.PH = parts[15].toInt();
+  data.isCharging = (parts[16] == "1");
+  data.batteryVoltage = parts[17].toInt();
+  data.batteryPercentage = parts[18].toInt();
 
   return data;
 }
 
-// Function to convert TRANSMIT_DATA to JSON format for MQTT transmission
+// Updated JSON function
 String transmitDataToJson(const TRANSMIT_DATA& d) {
     String s = "{";
     s += "\"ID\": " + String(d.ID) + ",";
@@ -99,6 +81,8 @@ String transmitDataToJson(const TRANSMIT_DATA& d) {
     s += "\"latitude\": " + String(d.latitude, 6) + ",";
     s += "\"longitude\": " + String(d.longitude, 6) + ",";
     s += "\"altitude\": " + String(d.altitude, 2) + ",";
+    s += "\"waterOne\": " + String(d.waterOne) + ",";
+    s += "\"waterTwo\": " + String(d.waterTwo) + ","; 
     s += "\"Temperature\": " + String(d.Temperature) + ",";
     s += "\"Moisture\": " + String(d.Moisture) + ",";
     s += "\"EC\": " + String(d.EC) + ",";

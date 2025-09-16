@@ -15,8 +15,11 @@
 #define CONFIG_RADIO_FREQ 850.0
 #define CONFIG_RADIO_OUTPUT_POWER 22
 #define CONFIG_RADIO_BW 125.0
-#define NUMBER_OF_DEVICES 3 // Number of devices in use that will be connected to the base node
+#define NUMBER_OF_DEVICES 1 // Number of devices in use that will be connected to the base node
 
+// float Frequencies[] = {923.2, 923.4, 923.6, 923.8, 924.0,
+//                        924.2, 924.4, 924.6, 924.8};
+float Frequencies[] = {923.2};
 
 static volatile bool transmittedFlag = false; // Flag to indicate that a packet was received
 static volatile bool receivedFlag = false; // Flag to indicate that a packet was received
@@ -36,15 +39,15 @@ SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUS
 // ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD SHIT ##########
 
 // WiFi name and password (will have to change depending on network)
-const char* ssid = "Cepter";
-const char* password = "T0dayIS7";
+const char* ssid = "SmartLeaf";
+const char* password = "qzan8545";
 
 // ThingsBoard connection stuff
 const char* token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
-const char* server = "192.168.1.145";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const char* server = "10.209.97.110";       // IP address of your local ThingsBoard server IPV4 using ipconfig
 const uint16_t port = 1883; // Jus the default port for MQTT
 
-
+static String msgReceived = "0";
 WiFiClient espClient;
 Arduino_MQTT_Client client(espClient);
 
@@ -77,10 +80,12 @@ void connectToWiFi() {
 }
 
 void ConnectToDevices() {
+  char deviceName[20];  // adjust size if names might be longer
+
   for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
-    String deviceName = "Device " + String(i + 1);
-    connectDevice(deviceName.c_str());
-    delay(1000); // Wait a bit before connecting to the next device
+    snprintf(deviceName, sizeof(deviceName), "SAMS Node %d", i + 1);
+    connectDevice(deviceName);   // safe: deviceName[] stays alive
+    delay(1000);
   }
 }
 
@@ -150,10 +155,10 @@ void connectDevice(const char* deviceName) {
   size_t length = payloadStr.length();
 
   if (client.publish("v1/gateway/connect", payload, length)) {
-    Serial.print("Sent connect for ");
+    Serial.print("Connected to ");
     Serial.println(deviceName);
   } else {
-    Serial.print("Failed to connect device: ");
+    Serial.print("Failed to connect to ");
     Serial.println(deviceName);
   }
 }
@@ -163,7 +168,7 @@ String buildPayload() {
     String payload = "{\n";
 
     for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
-        String deviceName = "Device " + String(i + 1);
+        String deviceName = "SAMS Node " + String(i + 1);
 
         payload += "  \"" + deviceName + "\": [";
         payload += transmitDataToJson(devices[i]);
@@ -184,69 +189,68 @@ String buildPayload() {
 // This is where potentially the readings of are formated from lora and sent
 void RecieveAndSendTelemetry() {
  // !! REPLACE THE RANDOM BULLSHIT VALUES WITH THE TRANSMISSION ADN RECIEVE OF LORA MESSAGES !!
+  for (int i = 0; i < sizeof(Frequencies) / sizeof(Frequencies[0]); i++) {
+    float freq = Frequencies[i];
+    Serial.print(F("Trying frequency: "));
+    Serial.println(freq);
 
-  // Cycle through each frequency devic
-  for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
-    // Simulate receiving data from each device
-    devices[i].ID = i + 1; // Device ID
-    devices[i].year = 2023;
-    devices[i].month = 10;
-    devices[i].day = 1;
-    devices[i].hour = 12;
-    devices[i].minute = 0;
-    devices[i].second = 0;
-    devices[i].latitude = 37.7749 + (i * 0.01); // Simulated latitude
-    devices[i].longitude = -122.4194 + (i * 0.01); // Simulated longitude
-    devices[i].altitude = 10.0 + (i * 5); // Simulated altitude
-    devices[i].Temperature = random(20, 30); // Simulated temperature
-    devices[i].Moisture = random(30, 70); // Simulated moisture
-    devices[i].EC = random(100, 500); // Simulated EC
-    devices[i].PH = random(6, 8); // Simulated pH
-    devices[i].isCharging = (i % 2 == 0); // Charging status alternating
-    devices[i].batteryVoltage = random(3, 5); // Simulated battery voltage
-    devices[i].batteryPercentage = random(50, 100); // Simulated battery percentage
+    // Set frequency
+    if (radio.setFrequency(freq) != RADIOLIB_ERR_NONE) {
+      Serial.println(F("Failed to set frequency."));
+      continue;
+    }
+
+    // listen for a packet for a while on this frequency
+    radio.startReceive();  // Or blocking: radio.receive(NULL);
+    while (!receivedFlag) {
+      // idle, waiting for interrupt/callback to set receivedFlag
+      delay(10); // Prevents watchdog reset or tight loop hogging CPU
+    }
+
+    // Process the received packet
+    receivedFlag = false;
+    int state = radio.readData(msgReceived);
+    // Stop listening before changing frequency
+    radio.standby();
+    flashLed();
+
+    if (state == RADIOLIB_ERR_NONE) {
+      Serial.println(F("Packet received!"));
+      Serial.print(F("Radio Data:\t\t"));
+      Serial.println(msgReceived);
+      devices[i] = DecodeMessage(msgReceived);
+    } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
+      Serial.println(F("CRC error!"));
+    } else {
+      Serial.print(F("Receive failed, code "));
+      Serial.println(state);
+    }
   }
+  // // Cycle through each frequency device
+  // for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
+  //   // Simulate receiving data from each device
+
+  //   devices[i].ID = i + 1; // Device ID
+  //   devices[i].year = 2023;
+  //   devices[i].month = 10;
+  //   devices[i].day = 1;
+  //   devices[i].hour = 12;
+  //   devices[i].minute = 0;
+  //   devices[i].second = 0;
+  //   devices[i].latitude = 37.7749 + (i * 0.01); // Simulated latitude
+  //   devices[i].longitude = -122.4194 + (i * 0.01); // Simulated longitude
+  //   devices[i].altitude = 10.0 + (i * 5); // Simulated altitude
+  //   devices[i].Temperature = random(20, 30); // Simulated temperature
+  //   devices[i].Moisture = random(30, 70); // Simulated moisture
+  //   devices[i].EC = random(100, 500); // Simulated EC
+  //   devices[i].PH = random(6, 8); // Simulated pH
+  //   devices[i].isCharging = (i % 2 == 0); // Charging status alternating
+  //   devices[i].batteryVoltage = random(3, 5); // Simulated battery voltage
+  //   devices[i].batteryPercentage = random(50, 100); // Simulated battery percentage
+  // }
 
   // Build the payload from all devices
   String payload = buildPayload();
-
-//   // Generate random temps for each device (e.g., 20 to 30 degrees)
-//   int tempA = random(20, 31);
-//   int tempB = random(20, 31);
-//   int tempC = random(20, 31);
-
-//   // Fixed values for battery %, latitude and longitude per device
-// const int batteryA = 75;
-// const int batteryB = 60;
-// const int batteryC = 90;
-
-// const float latA = 37.7749;
-// const float longA = -122.4194;
-
-// const float latB = 40.7128;
-// const float longB = -74.0060;
-
-// const float latC = 51.5074;
-// const float longC = -0.1278;
-
-// // Build JSON payload dynamically using String - probably a better way to do this
-// String payload = "{\n";
-// payload += "  \"Device A\": [{\"temp\": " + String(tempA) 
-//          + ", \"battery\": " + String(batteryA) 
-//          + ", \"lat\": " + String(latA, 6) 
-//          + ", \"long\": " + String(longA, 6) + "}],\n";
-
-// payload += "  \"Device B\": [{\"temp\": " + String(tempB) 
-//          + ", \"battery\": " + String(batteryB) 
-//          + ", \"lat\": " + String(latB, 6) 
-//          + ", \"long\": " + String(longB, 6) + "}],\n";
-
-// payload += "  \"Device C\": [{\"temp\": " + String(tempC) 
-//          + ", \"battery\": " + String(batteryC) 
-//          + ", \"lat\": " + String(latC, 6) 
-//          + ", \"long\": " + String(longC, 6) + "}]\n";
-
-// payload += "}";
 
   const uint8_t* payloadBytes = (const uint8_t*)payload.c_str();
   size_t payloadLength = payload.length();
@@ -312,12 +316,14 @@ void setup() {
   }
 
   connectToMQTT();
-  requestSharedAttribute();
+  delay(1000);
+  // requestSharedAttribute();
 
   // Connect each device once at startup
-  connectDevice("Device A");
-  connectDevice("Device B");
-  connectDevice("Device C");
+  // ConnectToDevices();
+  connectDevice("SAMS Node 1");
+  // connectDevice("Device B");
+  // connectDevice("Device C");
 }
 
 void loop() {
@@ -338,8 +344,8 @@ void loop() {
 
   // This is for checking if how often you want the the sensors to be read adn sent to the base station where frequency is 
   // set on the thingsboard dashboard  
-  if (now - lastRequest > 30000) {
-    requestSharedAttribute();
-    lastRequest = now;
-  }
+  // if (now - lastRequest > 30000) {
+  //   requestSharedAttribute();
+  //   lastRequest = now;
+  // }
 }
