@@ -98,11 +98,10 @@ void DISPLAY_STATE()
 void setup()
 {
   data.ID = NODE_ID;
-  // PMU->enablePowerOutput(XPOWERS_ALDO1); // Enable power for the soil and capacitive sensor
   setupBoards(); // Setup the Board (pretty sure its the pins)
 
   delay(1500);
-  
+
 
 #ifdef LOW_POWER_CONFIG   // Initial power saving setup
   btStop();               // Disable the bluetooth to save power

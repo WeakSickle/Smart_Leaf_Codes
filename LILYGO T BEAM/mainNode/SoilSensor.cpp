@@ -151,6 +151,7 @@ uint16_t SoilSensor::crc16(uint8_t *buf, uint8_t len) {
 
 // Scans and finds the address for the soil sensor
 bool SoilSensor::findAddress() {
+    Serial.println("Scanning for soil sensor address...");
     uint8_t response[13];
     for (uint8_t addr = 1; addr <= 247; addr++) {
         uint8_t request[8] = {addr, 0x03, 0x00, 0x00, 0x00, 0x04, 0, 0};

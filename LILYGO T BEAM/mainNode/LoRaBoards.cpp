@@ -182,9 +182,11 @@
          // In order to avoid bus occupation, during initialization, the SD card and QMC sensor are powered off and restarted
          if (ESP_SLEEP_WAKEUP_UNDEFINED == esp_sleep_get_wakeup_cause()) {
              Serial.println("Power off and restart ALDO BLDO..");
+             PMU->enablePowerOutput(XPOWERS_DCDC5);
              PMU->disablePowerOutput(XPOWERS_ALDO1);
              PMU->disablePowerOutput(XPOWERS_ALDO2);
              PMU->disablePowerOutput(XPOWERS_BLDO1);
+             
              delay(250);
          }
 
@@ -383,7 +385,7 @@
          PMU->disablePowerOutput(XPOWERS_ALDO3);
          // Disable Soil and Capcacitive Sensor Power
          //PMU->disablePowerOutput(XPOWERS_ALDO1);
-         PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 500);
+        //  PMU->setPowerChannelVoltage(XPOWERS_ALDO1, 500);
          
         PMU->disablePowerOutput(XPOWERS_DCDC5);
  
@@ -630,7 +632,9 @@
      Serial.println("setupBoards");
  
      getChipInfo();
- 
+       
+    // PMU->setPowerChannelVoltage(XPOWERS_DCDC5, 3300);
+    // PMU->enablePowerOutput(XPOWERS_DCDC5);
  #if defined(ARDUINO_ARCH_ESP32)
      SPI.begin(RADIO_SCLK_PIN, RADIO_MISO_PIN, RADIO_MOSI_PIN);
  #elif defined(ARDUINO_ARCH_STM32)
@@ -1265,17 +1269,17 @@ uint64_t currentTime = millis();
     // Disable power for the soil and capacitive sensor
     disablePeripherals();
 
-    // Configure RTC peripherals to stay powered during deep sleep
-    Serial.print("Sleep RTC peripherals: ");
-    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF)); // Keep RTC peripherals on
+    // // Configure RTC peripherals to stay powered during deep sleep
+    // Serial.print("Sleep RTC peripherals: ");
+    // Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF)); // Keep RTC peripherals on
 
-    // Configure RTC slow memory to power down during deep sleep
-    Serial.print("Sleep RTC slow memory: ");
-    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF)); // Power down RTC slow memory
+    // // Configure RTC slow memory to power down during deep sleep
+    // Serial.print("Sleep RTC slow memory: ");
+    // Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF)); // Power down RTC slow memory
 
-    // Configure RTC fast memory to auto power down
-    Serial.print("Sleep RTC fast memory: ");
-    Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF)); // Auto power down RTC fast memory  
+    // // Configure RTC fast memory to auto power down
+    // Serial.print("Sleep RTC fast memory: ");
+    // Serial.println(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF)); // Auto power down RTC fast memory  
 
 
 
