@@ -6,7 +6,7 @@
 #include "SoilSensor.h"
 #include "transmit_utils.h"
 // Radio Parameters
-#define CONFIG_RADIO_FREQ 850.0
+#define CONFIG_RADIO_FREQ 923.20
 
 #define CONFIG_RADIO_OUTPUT_POWER 22
 
@@ -18,8 +18,8 @@
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
 //#define USE_DISPLAY // Use the oled display
-#define USE_SOIL // Use the soil sensor
-#define USE_FDC // Use the FDC1004 sensor
+// #define USE_SOIL // Use the soil sensor
+// #define USE_FDC // Use the FDC1004 sensor
 #define USE_SLEEP
 
 const unsigned long TRANSMISSION_DURATION_MS = 30000;

@@ -13,7 +13,7 @@
 
 // Radio Parameters
 #define USE_RADIO // If using the lora radio
-#define CONFIG_RADIO_FREQ 850.0
+#define CONFIG_RADIO_FREQ 923.20
 #define CONFIG_RADIO_OUTPUT_POWER 22
 #define CONFIG_RADIO_BW 125.0
 #define NUMBER_OF_DEVICES 1 // Number of devices in use that will be connected to the base node
@@ -21,12 +21,12 @@
 // ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and other configuration settings ##########
 // Please read the instruction manual for configuring to work
 // WiFi name and password (will have to change depending on network)
-const char *ssid = "Cepter";
-const char *password = "T0dayIS7";
+const char *ssid = "SmartLeaf";
+const char *password = "qzan8545";
 
 // ThingsBoard connection stuff
 const char *token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
-const char *server = "192.168.1.145";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const char *server = "10.209.97.110";       // IP address of your local ThingsBoard server IPV4 using ipconfig
 
 // ########################################################################
 const uint16_t port = 1883; // Jus the default port for MQTT
@@ -257,7 +257,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
 void RecieveAndSendTelemetry()
 {
-  const unsigned long timeout = 2000;      // 2-second timeout per device
+  const unsigned long timeout = 10000;
   std::vector<TRANSMIT_DATA> validDevices; // Only include devices that responded
 
   for (int i = 0; i < numberOfDevices; i++)
@@ -318,7 +318,7 @@ void RecieveAndSendTelemetry()
         break;
       }
 
-      delay(10);
+      // delay(10);
     }
   }
 
