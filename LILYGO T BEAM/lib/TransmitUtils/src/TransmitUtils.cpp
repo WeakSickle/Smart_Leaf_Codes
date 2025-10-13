@@ -30,10 +30,10 @@ TRANSMIT_DATA DecodeMessage(const String& message) {
   int from = 0;
   int to = 0;
 
-  String parts[17];
-  for (int i = 0; i < 17; i++) {
+  String parts[19];
+  for (int i = 0; i < 19; i++) {
     to = message.indexOf(',', from);
-    if (to == -1 && i < 16) break;  // Not enough parts
+    if (to == -1 && i < 18) break;  // Not enough parts
     if (to == -1) to = message.length(); // Last part
     parts[i] = message.substring(from, to);
     from = to + 1;
