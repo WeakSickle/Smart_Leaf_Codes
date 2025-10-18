@@ -1,55 +1,58 @@
 #include <Arduino.h>
-#include <RadioLib.h>
-
-#include "LoRaBoards.h"
-
 #include <Arduino_MQTT_Client.h>
-#include <Server_Side_RPC.h>
 #include <Attribute_Request.h>
+#include <NetworkUtils.h>
+#include <RadioLib.h>
+#include <Server_Side_RPC.h>
 #include <Shared_Attribute_Update.h>
 #include <ThingsBoard.h>
 #include <TransmitUtils.h>
-#include <NetworkUtils.h>
+
+#include "LoRaBoards.h"
 
 // Radio Parameters
-#define USE_RADIO // If using the lora radio
+#define USE_RADIO  // If using the lora radio
 #define CONFIG_RADIO_FREQ 923.20
 #define CONFIG_RADIO_OUTPUT_POWER 22
 #define CONFIG_RADIO_BW 125.0
-#define NUMBER_OF_DEVICES 1 // Number of devices in use that will be connected to the base node
+#define NUMBER_OF_DEVICES 1  // Number of devices in use that will be connected to the base node
 
-// ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and other configuration settings ##########
-// Please read the instruction manual for configuring to work
-// WiFi name and password (will have to change depending on network)
-const char *ssid = "SmartLeaf";
-const char *password = "qzan8545";
+// ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and other
+// configuration settings ########## Please read the instruction manual for
+// configuring to work WiFi name and password (will have to change depending on
+// network)
+const char *ssid = "Cepter";
+const char *password = "T0dayIS7";
 
 // ThingsBoard connection stuff
-const char *token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
-const char *server = "10.209.97.110";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const char *token = "3g6yOcNlFZj2G9fGQLe8";  // Device access token from ThingsBoard (copied
+                             // from device page)
+const char *server = "192.168.1.145";  // IP address of your local ThingsBoard
+                                       // server IPV4 using ipconfig
 
 // ########################################################################
-const uint16_t port = 1883; // Jus the default port for MQTT
+const uint16_t port = 1883;  // Jus the default port for MQTT
 int numberOfDevices = NUMBER_OF_DEVICES;
 
 // float Frequencies[] = {923.2, 923.4, 923.6, 923.8, 924.0,
 //                        924.2, 924.4, 924.6, 924.8};
 float *Frequencies;
-
-static volatile bool transmittedFlag = false; // Flag to indicate that a packet was received
-static volatile bool receivedFlag = false;    // Flag to indicate that a packet was received
-void setReceiveFlag(void)
-{
+unsigned long *deviceLastReceived;  // Array to hold the last received time for each device
+static volatile bool transmittedFlag =
+    false;  // Flag to indicate that a packet was received
+static volatile bool receivedFlag =
+    false;  // Flag to indicate that a packet was received
+void setReceiveFlag(void) {
   // we got a packet, set the flag
   receivedFlag = true;
 }
 
-void setTransmitFlag(void)
-{
+void setTransmitFlag(void) {
   // we got a packet, set the flag
   transmittedFlag = true;
 }
-SX1262 radio = new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
+SX1262 radio =
+    new Module(RADIO_CS_PIN, RADIO_DIO1_PIN, RADIO_RST_PIN, RADIO_BUSY_PIN);
 
 static String msgReceived = "0";
 WiFiClient espClient;
@@ -67,11 +70,9 @@ void RecieveAndSendTelemetry();
 // Callback function to handle incoming MQTT messages after request is made
 void mqttCallback(char *topic, byte *payload, unsigned int length);
 void requestSharedAttribute();
-
 // Sends a request for the shared attribute "samplingFrequency"
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
   delay(1000);
   setupBoards();
@@ -85,38 +86,39 @@ void setup()
   printResult(state == RADIOLIB_ERR_NONE);
 
   Serial.print(F("Radio Initializing ... "));
-  if (state == RADIOLIB_ERR_NONE)
-  {
+  if (state == RADIOLIB_ERR_NONE) {
     Serial.println(F("success!"));
-  }
-  else
-  {
+  } else {
     Serial.print(F("failed, code "));
     Serial.println(state);
-    while (true)
-      ;
+    while (true);
   }
 
   radio.setPacketSentAction(setTransmitFlag);
   radio.setPacketReceivedAction(setReceiveFlag);
 
-  checkError(radio.setFrequency(CONFIG_RADIO_FREQ), "Selected frequency is invalid for this module!");
-  checkError(radio.setBandwidth(CONFIG_RADIO_BW), "Selected bandwidth is invalid for this module!");
-  checkError(radio.setSpreadingFactor(12), "Selected spreading factor is invalid for this module!");
-  checkError(radio.setCodingRate(6), "Selected coding rate is invalid for this module!");
+  checkError(radio.setFrequency(CONFIG_RADIO_FREQ),
+             "Selected frequency is invalid for this module!");
+  checkError(radio.setBandwidth(CONFIG_RADIO_BW),
+             "Selected bandwidth is invalid for this module!");
+  checkError(radio.setSpreadingFactor(12),
+             "Selected spreading factor is invalid for this module!");
+  checkError(radio.setCodingRate(6),
+             "Selected coding rate is invalid for this module!");
   checkError(radio.setSyncWord(0xAB), "Unable to set sync word!");
-  checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER), "Selected output power is invalid for this module!");
+  checkError(radio.setOutputPower(CONFIG_RADIO_OUTPUT_POWER),
+             "Selected output power is invalid for this module!");
   Serial.print(F("Passed Radio Setpup ... "));
 #endif
 
   Frequencies = new float[NUMBER_OF_DEVICES];
+  deviceLastReceived = new unsigned long[NUMBER_OF_DEVICES];
+  float startFreq = 923.2;  // starting frequency
+  float increment = 0.2;    // increment for each device
 
-  float startFreq = 923.2; // starting frequency
-  float increment = 0.2;   // increment for each device
-
-  for (int i = 0; i < NUMBER_OF_DEVICES; i++)
-  {
+  for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
     Frequencies[i] = startFreq + i * increment;
+    deviceLastReceived[i] = 0;
     Serial.println(Frequencies[i]);
   }
 
@@ -126,25 +128,23 @@ void setup()
   client.set_server(server, port);
   client.set_data_callback(mqttCallback);
   // Set MQTT buffer sizes before connecting to broker
-  if (!client.set_buffer_size(512, 512))
-  { // // Increase buffer size to 512 bytes
+  if (!client.set_buffer_size(4096,
+                              4096)) {  // // Increase buffer size to 4096 bytes
     Serial.println("Failed to set MQTT buffer sizes!");
   }
 
   connectToMQTT(client, token);
   delay(1000);
-  // requestSharedAttribute();
+  requestSharedAttribute();
   // Connect each device once at startup
-  connectDevice(client, "SAMS Node 1");
+  // connectDevice(client, "SAMS Node 1");
   // connectDevice("Device B");
   // connectDevice("Device C");
 }
 
-void loop()
-{
+void loop() {
   // Reconnect if MQTT client disconnected
-  if (!client.connected())
-  {
+  if (!client.connected()) {
     connectToMQTT(client, token);
   }
 
@@ -152,123 +152,131 @@ void loop()
   client.loop();
 
   // Request shared attributes periodically
-  if (millis() - lastRequest > 30000)
-  { // every 30 seconds
+  if (millis() - lastRequest > 30000) {  // every 30 seconds
     requestSharedAttribute();
     lastRequest = millis();
   }
 
+
   // Update telemetry at the configured sampling interval
-  if (millis() - lastSent > samplingFrequency)
-  {
-    RecieveAndSendTelemetry();
+  if (millis() - lastSent > samplingFrequency) {
+    // RecieveAndSendTelemetry();
+    SendExampleTelemetry();
     lastSent = millis();
+  }
+
+
+  // Check device activity periodically
+  static unsigned long lastActivityCheck = 0;
+  if (millis() - lastActivityCheck > 60000) { // every 1 minute
+    checkDeviceActivity();
+    lastActivityCheck = millis();
   }
 }
 
-bool checkError(int errCode, const char *errMsg)
-{
-  if (errCode != RADIOLIB_ERR_NONE)
-  {
+bool checkError(int errCode, const char *errMsg) {
+  if (errCode != RADIOLIB_ERR_NONE) {
     Serial.println(errMsg);
-    while (true)
-      ;
-    return false; // Will never reach here but good style
+    while (true);
+    return false;  // Will never reach here but good style
   }
   return true;
 }
 
-void mqttCallback(char *topic, byte *payload, unsigned int length)
-{
+void mqttCallback(char *topic, byte *payload, unsigned int length) {
   Serial.print("\n[MQTT] Topic: ");
   Serial.println(topic);
 
   StaticJsonDocument<512> doc;
   DeserializationError error = deserializeJson(doc, payload, length);
-  if (error)
-  {
+  if (error) {
     Serial.println("[MQTT] Failed to parse JSON");
     return;
   }
 
   // Check for gateway shared attribute response
-  if (String(topic).startsWith("v1/devices/me/attributes/response/"))
-  {
-    if (doc.containsKey("shared"))
-    {
+  if (String(topic).startsWith("v1/devices/me/attributes/response/")) {
+    if (doc.containsKey("shared")) {
       JsonObject shared = doc["shared"];
-      if (shared.containsKey("samplingFrequency"))
-      {
+      if (shared.containsKey("samplingFrequency")) {
         // Check if the value is differnt from the current one
-        if (shared["samplingFrequency"] != samplingFrequency)
-        {
+        if (shared["samplingFrequency"] != samplingFrequency) {
           // Update the sampling frequency
           samplingFrequency = shared["samplingFrequency"];
           Serial.print("[MQTT] Updated samplingFrequency to: ");
           Serial.println(samplingFrequency);
-        }
-        else
-        {
+        } else {
           Serial.println("[MQTT] No change in samplingFrequency");
         }
-      }
-      else
-      {
+      } else {
         Serial.println("[MQTT] samplingFrequency not found in response");
       }
-      if (shared.containsKey("numberOfDevices"))
-      {
+      if (shared.containsKey("numberOfDevices")) {
         int newCount = shared["numberOfDevices"];
-        if (newCount != numberOfDevices && newCount > 0)
-        {
-
+        if (newCount > numberOfDevices) {
           // Connect any new devices
-          for (int i = numberOfDevices; i < newCount; i++)
-          {
+          for (int i = numberOfDevices; i < newCount; i++) {
             String deviceName = "SAMS Node " + String(i + 1);
             connectDevice(client, deviceName.c_str());
+            // Attribute update message
+            setDeviceAttribute(deviceName.c_str(), "active", "true");
           }
 
-          Serial.print("[MQTT] Number of devices changed: ");
-          Serial.println(newCount);
-
-          // Resize Frequencies array
-          delete[] Frequencies;
-          Frequencies = new float[newCount];
-          float startFreq = 923.2;
-          float increment = 0.2;
-          for (int i = 0; i < newCount; i++)
-          {
-            Frequencies[i] = startFreq + i * increment;
-            Serial.println(Frequencies[i]);
+        } else if (newCount < numberOfDevices) {
+          // --- Disconnect removed devices ---
+          Serial.println("[MQTT] Disconnecting removed devices...");
+          for (int i = newCount; i < numberOfDevices; i++) {
+            String deviceName = "SAMS Node " + String(i + 1);
+            setDeviceAttribute(deviceName.c_str(), "active", "false");
+            Serial.print("[MQTT] Disconnected device: ");
+            Serial.println(deviceName);
+            // Optional: if you want to also DELETE them completely:
+            // deleteDeviceFromThingsBoard(deviceName);
           }
-
-          // Resize devices array
-          delete[] devices;
-          devices = new TRANSMIT_DATA[newCount];
-
-          // Finally update the count
-          numberOfDevices = newCount;
         }
+
+        Serial.print("[MQTT] Number of devices changed: ");
+        Serial.println(newCount);
+
+        // Resize Frequencies array
+        delete[] Frequencies;
+        Frequencies = new float[newCount];
+        float startFreq = 923.2;
+        float increment = 0.2;
+        for (int i = 0; i < newCount; i++) {
+          Frequencies[i] = startFreq + i * increment;
+          Serial.println(Frequencies[i]);
+        }
+
+        // Resize devices array
+        delete[] devices;
+        devices = new TRANSMIT_DATA[newCount];
+
+        // Finally update the count
+        numberOfDevices = newCount;
       }
     }
   }
 }
 
-void RecieveAndSendTelemetry()
-{
-  const unsigned long timeout = 10000;
-  std::vector<TRANSMIT_DATA> validDevices; // Only include devices that responded
 
-  for (int i = 0; i < numberOfDevices; i++)
-  {
+void RecieveAndSendTelemetry() {
+  const unsigned long timeout = 10000;
+  std::vector<TRANSMIT_DATA> validDevices;  // Only include devices that responded
+
+  for (int i = 0; i < numberOfDevices; i++) {
     float freq = Frequencies[i];
     Serial.print(F("Trying frequency: "));
     Serial.println(freq);
 
+    // if the message has already been received in the previous 2 minutes skip
+    if (deviceLastReceived[i] != 0 && (millis() - deviceLastReceived[i]) < 120000) {
+      Serial.println(F("Message recently received, skipping..."));
+      continue;
+    }
+
     // Set frequency
-    if (radio.setFrequency(freq) != RADIOLIB_ERR_NONE)
-    {
+    if (radio.setFrequency(freq) != RADIOLIB_ERR_NONE) {
       Serial.println(F("Failed to set frequency."));
       continue;
     }
@@ -278,16 +286,13 @@ void RecieveAndSendTelemetry()
     unsigned long startTime = millis();
     bool received = false;
 
-    while (!received)
-    {
-      if (receivedFlag)
-      {
+    while (!received) {
+      if (receivedFlag) {
         receivedFlag = false;
         int state = radio.readData(msgReceived);
         radio.standby();
 
-        if (state == RADIOLIB_ERR_NONE)
-        {
+        if (state == RADIOLIB_ERR_NONE) {
           Serial.println(F("Packet received!"));
           Serial.print(F("Radio Data:\t\t"));
           Serial.println(msgReceived);
@@ -296,14 +301,10 @@ void RecieveAndSendTelemetry()
           TRANSMIT_DATA decoded = DecodeMessage(msgReceived);
           validDevices.push_back(decoded);
           received = true;
-        }
-        else if (state == RADIOLIB_ERR_CRC_MISMATCH)
-        {
+        } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
           Serial.println(F("CRC error!"));
           break;
-        }
-        else
-        {
+        } else {
           Serial.print(F("Receive failed, code "));
           Serial.println(state);
           break;
@@ -311,8 +312,7 @@ void RecieveAndSendTelemetry()
       }
 
       // Timeout
-      if (millis() - startTime > timeout)
-      {
+      if (millis() - startTime > timeout) {
         Serial.println(F("Receive timeout! Skipping this device."));
         radio.standby();
         break;
@@ -323,34 +323,105 @@ void RecieveAndSendTelemetry()
   }
 
   // Only send telemetry for valid devices
-  if (!validDevices.empty())
-  {
+  if (!validDevices.empty()) {
     String payload = buildPayload(validDevices.data(), validDevices.size());
     const uint8_t *payloadBytes = (const uint8_t *)payload.c_str();
     size_t payloadLength = payload.length();
 
-    if (client.publish("v1/gateway/telemetry", payloadBytes, payloadLength))
-    {
+    if (client.publish("v1/gateway/telemetry", payloadBytes, payloadLength)) {
       Serial.println("Telemetry sent successfully.");
       Serial.print("Payload size: ");
       Serial.println(payloadLength);
-    }
-    else
-    {
+    } else {
       Serial.println("Failed to send telemetry.");
       Serial.print("Payload size: ");
       Serial.println(payloadLength);
     }
-  }
-  else
-  {
+  } else {
     Serial.println("No valid device data to send.");
   }
 }
 
-void requestSharedAttribute()
-{
+void requestSharedAttribute() {
   String payload = "{\"sharedKeys\":\"samplingFrequency,numberOfDevices\"}";
-  client.publish("v1/devices/me/attributes/request/1", (const uint8_t *)payload.c_str(), payload.length());
-  Serial.println("[MQTT] Requested shared attribute: samplingFrequency, numberOfDevices");
+  client.publish("v1/devices/me/attributes/request/1",
+                 (const uint8_t *)payload.c_str(), payload.length());
+  Serial.println(
+      "[MQTT] Requested shared attribute: samplingFrequency, numberOfDevices");
+}
+
+// Used for controlling the attributes (in this case settign active or not)
+void setDeviceAttribute(const char *deviceName, const char *attribute, const char *value) {
+  StaticJsonDocument<128> doc;
+  doc[attribute] = value;
+
+  StaticJsonDocument<256> wrapperDoc;
+  wrapperDoc[deviceName] = doc;
+
+  char buffer[256];
+  size_t len = serializeJson(wrapperDoc, buffer);
+  client.publish("v1/gateway/attributes", (uint8_t *)buffer, len);
+
+  Serial.print("[MQTT] Published attribute for ");
+  Serial.println(deviceName);
+}
+
+// Function to send example telemetry data for testing
+void SendExampleTelemetry() {
+  TRANSMIT_DATA *exampleDevices = new TRANSMIT_DATA[numberOfDevices];
+
+  for (int i = 0; i < numberOfDevices; i++) {
+    exampleDevices[i].ID = i + 1;
+    exampleDevices[i].year = 2025;
+    exampleDevices[i].month = 10;
+    exampleDevices[i].day = 16;
+    exampleDevices[i].hour = 12;
+    exampleDevices[i].minute = 30 + i;
+    exampleDevices[i].second = random(0, 60);
+    exampleDevices[i].waterOne = 50 + random(-2, 3);
+    exampleDevices[i].waterTwo = 60 + random(-2, 3);
+    exampleDevices[i].latitude = -36.8541 + i * 0.0001 + random(-10, 11) * 0.00001;
+    exampleDevices[i].longitude = 174.769 + i * 0.0001 + random(-10, 11) * 0.00001;
+    exampleDevices[i].altitude = 10.5 + i * 0.1 + random(-5, 6) * 0.01;
+    exampleDevices[i].Temperature = 186 + random(-5, 6); // 18.6°C * 10
+    exampleDevices[i].Moisture = 40 + random(-3, 4);
+    exampleDevices[i].EC = 1200 + random(-20, 21);
+    exampleDevices[i].PH = 7 + random(-1, 2);
+    exampleDevices[i].isCharging = random(0, 2);
+    exampleDevices[i].batteryVoltage = 3700 + random(-20, 21);
+    exampleDevices[i].batteryPercentage = 85 + random(-2, 3);
+  }
+
+  String payload = buildPayload(exampleDevices, numberOfDevices);
+  const uint8_t *payloadBytes = (const uint8_t *)payload.c_str();
+  size_t payloadLength = payload.length();
+
+  if (client.publish("v1/gateway/telemetry", payloadBytes, payloadLength)) {
+    Serial.println("Example telemetry sent successfully.");
+    Serial.print("Payload size: ");
+    Serial.println(payloadLength);
+  } else {
+    Serial.println("Failed to send example telemetry.");
+    Serial.print("Payload size: ");
+    Serial.println(payloadLength);
+  }
+
+  delete[] exampleDevices;
+}
+
+// Function to check device activity and update "active" attribute
+void checkDeviceActivity() {
+  unsigned long fourHours = 4UL * 60UL * 60UL * 1000UL; 
+  unsigned long now = millis();
+
+  for (int i = 0; i < numberOfDevices; i++) {
+    String deviceName = "SAMS Node " + String(i + 1);
+    if (deviceLastReceived[i] == 0) continue; // Never received, skip
+
+    if (now - deviceLastReceived[i] > fourHours) {
+      setDeviceAttribute(deviceName.c_str(), "active", "false");
+      Serial.print("[MQTT] Set device offline due to inactivity: ");
+      Serial.println(deviceName);
+    }
+  }
 }
