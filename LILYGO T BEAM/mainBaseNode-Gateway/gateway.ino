@@ -15,9 +15,9 @@
 #define CONFIG_RADIO_FREQ 923.20
 #define CONFIG_RADIO_OUTPUT_POWER 22
 #define CONFIG_RADIO_BW 125.0
-#define NUMBER_OF_DEVICES 1  // Number of devices in use that will be connected to the base node
+#define NUMBER_OF_DEVICES 1  // Intiial Number of devvices (this is adjusted by dash)
 
-// ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and other
+// ########## CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and SAMS NODES #######################
 // configuration settings ########## Please read the instruction manual for
 // configuring to work WiFi name and password (will have to change depending on
 // network)
@@ -30,18 +30,20 @@ const char *token = "3g6yOcNlFZj2G9fGQLe8";  // Device access token from ThingsB
 const char *server = "192.168.1.145";  // IP address of your local ThingsBoard
                                        // server IPV4 using ipconfig
 
+
+
 // ########################################################################
-const uint16_t port = 1883;  // Jus the default port for MQTT
+
+const uint16_t port = 1883;  // Just the default port for MQTT
 int numberOfDevices = NUMBER_OF_DEVICES;
 
+// List of frequencies currently supported
 // float Frequencies[] = {923.2, 923.4, 923.6, 923.8, 924.0,
 //                        924.2, 924.4, 924.6, 924.8};
 float *Frequencies;
 unsigned long *deviceLastReceived;  // Array to hold the last received time for each device
-static volatile bool transmittedFlag =
-    false;  // Flag to indicate that a packet was received
-static volatile bool receivedFlag =
-    false;  // Flag to indicate that a packet was received
+static volatile bool transmittedFlag =false;  // Flag to indicate that a packet was received
+static volatile bool receivedFlag = false;  // Flag to indicate that a packet was received
 void setReceiveFlag(void) {
   // we got a packet, set the flag
   receivedFlag = true;
@@ -75,6 +77,7 @@ void requestSharedAttribute();
 void setup() {
   Serial.begin(115200);
   delay(1000);
+  // lora board setup and connect to wifi
   setupBoards();
   connectToWiFi(ssid, password);
 
@@ -93,7 +96,7 @@ void setup() {
     Serial.println(state);
     while (true);
   }
-
+// Check and set the radio parameters are good
   radio.setPacketSentAction(setTransmitFlag);
   radio.setPacketReceivedAction(setReceiveFlag);
 
@@ -132,14 +135,11 @@ void setup() {
                               4096)) {  // // Increase buffer size to 4096 bytes
     Serial.println("Failed to set MQTT buffer sizes!");
   }
-
+  // Connect to ThingsBoard MQTT broker
   connectToMQTT(client, token);
   delay(1000);
+  // Request the shared attributes from the thingsboard
   requestSharedAttribute();
-  // Connect each device once at startup
-  // connectDevice(client, "SAMS Node 1");
-  // connectDevice("Device B");
-  // connectDevice("Device C");
 }
 
 void loop() {
@@ -174,6 +174,7 @@ void loop() {
   }
 }
 
+// Function for checking the RADIO setup error codes
 bool checkError(int errCode, const char *errMsg) {
   if (errCode != RADIOLIB_ERR_NONE) {
     Serial.println(errMsg);
@@ -183,6 +184,7 @@ bool checkError(int errCode, const char *errMsg) {
   return true;
 }
 
+// Main driver function for processing incoming MQTT messages from the dashboard
 void mqttCallback(char *topic, byte *payload, unsigned int length) {
   Serial.print("\n[MQTT] Topic: ");
   Serial.println(topic);
@@ -198,6 +200,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
   if (String(topic).startsWith("v1/devices/me/attributes/response/")) {
     if (doc.containsKey("shared")) {
       JsonObject shared = doc["shared"];
+      // This is more used for testing the attribute but have kept it here incase
+      // needed later
       if (shared.containsKey("samplingFrequency")) {
         // Check if the value is differnt from the current one
         if (shared["samplingFrequency"] != samplingFrequency) {
@@ -211,6 +215,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
       } else {
         Serial.println("[MQTT] samplingFrequency not found in response");
       }
+      // Check for number of devices change attribute
       if (shared.containsKey("numberOfDevices")) {
         int newCount = shared["numberOfDevices"];
         if (newCount > numberOfDevices) {
@@ -223,22 +228,20 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
           }
 
         } else if (newCount < numberOfDevices) {
-          // --- Disconnect removed devices ---
+          // Update the status on dashboard to say they are disconnected
           Serial.println("[MQTT] Disconnecting removed devices...");
           for (int i = newCount; i < numberOfDevices; i++) {
             String deviceName = "SAMS Node " + String(i + 1);
             setDeviceAttribute(deviceName.c_str(), "active", "false");
             Serial.print("[MQTT] Disconnected device: ");
             Serial.println(deviceName);
-            // Optional: if you want to also DELETE them completely:
-            // deleteDeviceFromThingsBoard(deviceName);
           }
         }
 
         Serial.print("[MQTT] Number of devices changed: ");
         Serial.println(newCount);
 
-        // Resize Frequencies array
+        // Resize Frequencies array based on number of devices 
         delete[] Frequencies;
         Frequencies = new float[newCount];
         float startFreq = 923.2;
@@ -259,7 +262,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
   }
 }
 
-
+// Main function to loop through each device frequency, receive data, and send telemetry to thingsboard
 void RecieveAndSendTelemetry() {
   const unsigned long timeout = 10000;
   std::vector<TRANSMIT_DATA> validDevices;  // Only include devices that responded
@@ -318,7 +321,6 @@ void RecieveAndSendTelemetry() {
         break;
       }
 
-      // delay(10);
     }
   }
 
@@ -342,6 +344,7 @@ void RecieveAndSendTelemetry() {
   }
 }
 
+// Function to request shared attribute from ThingsBoard (when adding more just add to the payload string)
 void requestSharedAttribute() {
   String payload = "{\"sharedKeys\":\"samplingFrequency,numberOfDevices\"}";
   client.publish("v1/devices/me/attributes/request/1",
