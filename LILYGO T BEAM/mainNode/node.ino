@@ -1,3 +1,4 @@
+// Authors: Tiernan Phillips, Ivan Santiago
 #include <Arduino.h>
 #include <RadioLib.h>
 #include "Protocentral_FDC1004_EDITTED.h"
@@ -330,16 +331,24 @@ case SENSOR_DATA:
   Serial.println("FDC Readings: ");
   float channelOne = FDC.fdcReadAverageOne(); // Average the FDC data then print it
   float channelTwo = FDC.fdcReadAverageTwo();
+
+  // Print the raw capacitance values
   Serial.print("Channel 1: ");
   Serial.println(channelOne);
   Serial.print("Channel 2: ");
   Serial.println(channelTwo);
+
+  // Convert capacitance to water volume
   waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
   waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
+
+  // Print the water volumes
   Serial.print("Water Volume 1: ");
   Serial.println(waterVolumeOne);
   Serial.print("Water Volume 2: ");
   Serial.println(waterVolumeTwo);
+
+  // Store the data into the struct for transmission
   data.waterOne = waterVolumeOne; 
   data.waterTwo = waterVolumeTwo;
 
@@ -351,10 +360,14 @@ case SENSOR_DATA:
     FourParam.readSensor(resp);
     bool result = FourParam.readSensor(resp);
     if (result) {
+
+      // Store the data into the struct for transmission
       data.Temperature = FourParam.GetTemperature(resp);
       data.Moisture = FourParam.GetMoisture(resp);
       data.EC = FourParam.GetEC(resp);
       data.PH = FourParam.GetPH(resp);
+
+      // Print the soil sensor data
       Serial.print("Temperature: ");
       Serial.println(FourParam.GetTemperature(resp));
       Serial.print("Moisture: ");
