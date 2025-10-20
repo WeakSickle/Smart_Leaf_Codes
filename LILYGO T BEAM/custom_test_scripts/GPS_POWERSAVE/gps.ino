@@ -69,8 +69,6 @@ void setup()
   //myGPS.enableDebugging(); // Uncomment this line to enable debug messages
 
   myGPS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
-  //myGPS.saveConfiguration(); //Uncomment this line to save the current settings to flash and BBR
-  //myGPS.getProtocolVersion(); //Get the protocol version to see if we are using a ZED or NEO module
   Serial.print("Protocol version: ");
   Serial.print(myGPS.getProtocolVersionHigh());
     Serial.print(",");

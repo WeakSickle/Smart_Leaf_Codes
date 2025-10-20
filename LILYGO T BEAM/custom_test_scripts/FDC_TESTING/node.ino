@@ -122,12 +122,6 @@ void fdcReadAverage() {
   Serial.print("Channel 2: ");
   Serial.print(average[1] / 10);
   Serial.println(" pF");
-  // Serial.print("Channel 3: ");
-  // Serial.print(average[2] / 10);
-  // Serial.println(" pF");
-  // Serial.print("Channel 4: ");
-  // Serial.print(average[3] / 10);
-  // Serial.println(" pF");
 
   for (int i = 0; i < 4; i++) {
     avgCapacitance[i] = average[i] /= 10;
@@ -152,17 +146,6 @@ void setTransmitFlag(void)
   transmittedFlag = true;
 }
 
-// void DISPLAY_STATE()
-// {
-//   u8g2->clearBuffer(); // Clear the display buffer
-//   String stateString =
-//       "State: " +
-//       String(currentState); // Create a string with the current state
-//   u8g2->drawStr(0, 20,
-//                 stateString.c_str()); // Draw the state string on the display
-//   u8g2->sendBuffer();                 // Send the buffer to the display
-// }
-
 void setup()
 {
   data.ID = NODE_ID;
@@ -182,39 +165,6 @@ void setup()
 void loop()
 {
 
-
-  // Serial.println("Starting FDC Readings...");
-  // FDC.configureMeasurementSingle(0, 0, capdac);
-  // FDC.triggerSingleMeasurement(capdac, FDC1004_100HZ);
-  // Serial.println("FDC Readings Triggered");
-  //wait for completion
-  // delay(15);
-  // uint16_t value[2];
-  // if (! FDC.readMeasurement(0, value))
-  // {
-  //   Serial.println("FDC Readings Completed");
-  //   int16_t msb = (int16_t) value[0];
-  //   int32_t capacitance = ((int32_t)457) * ((int32_t)msb); //in attofarads
-  //   capacitance /= 1000;   //in femtofarads
-  //   capacitance += ((int32_t)3028) * ((int32_t)capdac);
-
-  //   Serial.print((((float)capacitance/1000)),capdac);
-  //   Serial.print("  pf, ");
-
-  //   if (msb > UPPER_BOUND)               // adjust capdac accordingly
-	// {
-  //     if (0 < FDC1004_CAPDAC_MAX)
-	//   capdac++;
-  //   }
-	// else if (msb < LOWER_BOUND)
-	// {
-  //     if (capdac > 0)
-	//   capdac--;
-  //   }
-
-  // } else {
-  //   Serial.println("FDC Readings Failed");
-  // }
   fdcRead(MEASUREMENT, CHANNEL, CAPDAC, rawCapacitance);
   fdcReadAverage();
   delay(2000);

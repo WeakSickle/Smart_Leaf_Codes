@@ -10,7 +10,7 @@ void SoilSensor::begin() {
     Serial.print("Soil Sensor initialized at address: ");
     Serial.println(this->DeviceAddress, HEX);
 
-
+    // Find the sensor address
     if (findAddress()) {
         Serial.print("Soil Sensor initialized at address: ");
         Serial.println(this->DeviceAddress, HEX);
@@ -42,18 +42,7 @@ bool SoilSensor::readSensor(uint8_t (&response)[13]) {
         if (readResponse(response, 13, 1000)) {
             uint16_t response_crc = (response[12] << 8) | response[11];
             uint16_t calculated_crc = crc16(response, 11);
-            // Serial.print("Calculated CRC: ");
-            // Serial.println(calculated_crc, HEX);
-            // Serial.print("Response CRC: ");
-            // Serial.println(response_crc, HEX);
 
-            // Serial.println("Response bytes:");
-            // for (int i = 0; i < 13; i++) {
-            //     Serial.print("Byte ");
-            //     Serial.print(i);
-            //     Serial.print(": 0x");
-            //     Serial.println(response[i], HEX);
-            // }
             if (response_crc == calculated_crc) {
                 Serial.println("Response received and CRC valid.");
                 // Serial.print("Raw Response: ");
@@ -82,6 +71,7 @@ bool SoilSensor::readSensor(uint8_t (&response)[13]) {
     return false;
 }
 
+// Function to get the temperature from the response
 uint16_t SoilSensor::GetTemperature(uint8_t (&response)[13]) {
     if (response[0] == this->DeviceAddress && response[1] == 0x03) {
         int16_t temp = (response[5] << 8) | response[6];
@@ -90,6 +80,7 @@ uint16_t SoilSensor::GetTemperature(uint8_t (&response)[13]) {
     return this->Temp = 0; // Error or invalid response
 }
 
+// Function to get the moisture from the response
 uint16_t SoilSensor::GetMoisture(uint8_t (&response)[13]) {
     if (response[0] == this->DeviceAddress && response[1] == 0x03) {
         int16_t moisture = (response[3] << 8) | response[4];
@@ -98,6 +89,7 @@ uint16_t SoilSensor::GetMoisture(uint8_t (&response)[13]) {
     return this->Moisture = 0; // Error or invalid response
 }
 
+// Function to get the EC from the response
 uint16_t SoilSensor::GetEC(uint8_t (&response)[13]) {
     if (response[0] == this->DeviceAddress && response[1] == 0x03) {
         int16_t ec = (response[7] << 8) | response[8];
@@ -106,6 +98,7 @@ uint16_t SoilSensor::GetEC(uint8_t (&response)[13]) {
     return 0; // Error or invalid response
 }
 
+// Function to get the PH from the response
 uint16_t SoilSensor::GetPH(uint8_t (&response)[13]) {
     if (response[0] == this->DeviceAddress && response[1] == 0x03) {
         int16_t ph = (response[9] << 8) | response[10];
@@ -153,7 +146,7 @@ uint16_t SoilSensor::crc16(uint8_t *buf, uint8_t len) {
   return crc;
 }
 
-
+// Function to find the sensor address by scanning possible addresses
 bool SoilSensor::findAddress() {
     uint8_t response[13];
     for (uint8_t addr = 1; addr <= 247; addr++) {

@@ -135,8 +135,6 @@ void loop()
       Serial.println(FourParam.GetPH(resp));
     }
 
-  // FDC.fdcRead(); // Read the FDC data
-  // FDC.fdcReadAverage(); // Average the FDC data then print it
   delay(2000);
 
 }

@@ -105,9 +105,7 @@ void loop() {
     }
 
     unsigned long startTime = millis();
-    // This will change frequency after 5 seconds this can cause some funky shit it think on reciver end
-    // I think its cause it swaps like part way through or some shit for multi device i dont thinkg should be a problem
-
+    
     while (millis() - startTime < 5000) {
       // Create a unique payload for each message (optional)
       String message = "Freq #" + String(i) + " - Time: " + String(millis());
