@@ -1,11 +1,13 @@
-// Authors: Tiernan Phillips, Ivan Santiago
+// Main Script for the Base Node of the SAMS System
+// Authors: Tiernan Phillips & Ivan Santiago
+// Date: Oct 2025
 #include <Arduino.h>
 #include <RadioLib.h>
 #include "Protocentral_FDC1004_EDITTED.h"
 #include "LoRaBoards.h"
 #include "SparkFun_Ublox_Arduino_Library.h"
 #include "SoilSensor.h"
-#include "transmit_utils.h"
+#include <TransmitUtils.h>
 // Radio Parameters
 #define CONFIG_RADIO_FREQ 923.20
 
@@ -43,7 +45,7 @@ SoilSensor FourParam;
 uint8_t resp[13];
 TRANSMIT_DATA data; // Struct to hold the data to be transmitted after
 
-// FDC setupt
+// FDC setup
 FDC1004 FDC;
 
 enum STATE
@@ -57,7 +59,7 @@ enum STATE
   TRANSMIT
 };
 
-STATE currentState = STANDBY; // Default state is STANDBY (This will be low power mode most)
+STATE currentState = GPS_ACQUISITION; // Default state is GPS_ACQUISITION once it wakes up
 
 bool receivedFlag;
 static volatile bool transmittedFlag = true; // Flag to indicate that a packet was received
@@ -205,9 +207,10 @@ void loop()
 #endif
 
 #ifdef LOW_POWER_CONFIG
-// radio.sleep();
-//  radio.startReceiveDutyCycle(); // This makes the radio turn on an off periodically there is calculator for
-// esp_deep_sleep_start();  // Put the ESP32 into deep sleep mode until a packet is received
+    radio.sleep();
+    bool result = GPS.powerOff(secondsToSleep); // Power down the GPS to save power
+    Serial.println("GPS powered down: " + String(result));
+    sleepDevice(secondsToSleep); // Sleep for the defined time
 #endif
 
     // delay(5000);
@@ -429,10 +432,7 @@ Serial.println(message);
   }
     
   currentState = STANDBY; // Move back to standby state
-  radio.sleep();
-  bool result = GPS.powerOff(secondsToSleep); // Power down the GPS to save power
-  Serial.println("GPS powered down: " + String(result));
-  sleepDevice(secondsToSleep); // Sleep for the defined time
+
   break;
 }
 }

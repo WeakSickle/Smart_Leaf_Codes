@@ -1,3 +1,7 @@
+// Main Script for the Base Node of the SAMS System
+// Authors: Tiernan Phillips & Ivan Santiago
+// Date: Oct 2025
+
 #include <Arduino.h>
 #include <Arduino_MQTT_Client.h>
 #include <Attribute_Request.h>

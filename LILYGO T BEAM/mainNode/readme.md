@@ -4,4 +4,4 @@ This folder contains all the Code necessary to be flashed onto the Lilygo T-Beam
 
 ## Description
 
-This contains all the helper files necessary for the communciation with the Capacitive sensors and RS485 4 parameters soil sensor aswell as transmission helper file for formating the messages. 
+This contains all the helper files necessary for the communciation with the Capacitive sensors and RS485 4 parameters soil sensor. Check TransmitUtils library for formatting messages functions 
