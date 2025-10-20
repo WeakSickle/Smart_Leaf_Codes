@@ -18,12 +18,12 @@
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
 //#define USE_DISPLAY // Use the oled display
-// #define USE_SOIL // Use the soil sensor
-// #define USE_FDC // Use the FDC1004 sensor
+#define USE_SOIL // Use the soil sensor
+#define USE_FDC // Use the FDC1004 sensor
 #define USE_SLEEP
 
 const unsigned long TRANSMISSION_DURATION_MS = 30000;
-const uint64_t secondsToSleep = 60;
+const uint64_t secondsToSleep = 10800;
 
 
 // Setup for the FDC
@@ -340,6 +340,8 @@ case SENSOR_DATA:
   Serial.println(waterVolumeOne);
   Serial.print("Water Volume 2: ");
   Serial.println(waterVolumeTwo);
+  data.waterOne = waterVolumeOne; 
+  data.waterTwo = waterVolumeTwo;
 
   // delay(2000);
   #endif

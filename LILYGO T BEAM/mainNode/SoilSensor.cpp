@@ -153,14 +153,16 @@ uint16_t SoilSensor::crc16(uint8_t *buf, uint8_t len) {
 bool SoilSensor::findAddress() {
     Serial.println("Scanning for soil sensor address...");
     uint8_t response[13];
-    for (uint8_t addr = 1; addr <= 247; addr++) {
+    for (uint8_t addr = 1; addr <= 10; addr++) {
+        Serial.println("Trying address: ");
+        Serial.println(addr);
         uint8_t request[8] = {addr, 0x03, 0x00, 0x00, 0x00, 0x04, 0, 0};
         uint16_t crc = crc16(request, 6);
         request[6] = crc & 0xFF;
         request[7] = crc >> 8;
 
         sendPacket(request, 8);
-        delay(150);
+        delay(500);
 
         if (readResponse(response, 13, 500)) {
             uint16_t resp_crc = (response[12] << 8) | response[11];

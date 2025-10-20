@@ -21,12 +21,12 @@
 // ####### CONFIGURATION FOR WIFI AND CONNECTION TO THINGSBOARD and other configuration settings ##########
 // Please read the instruction manual for configuring to work
 // WiFi name and password (will have to change depending on network)
-const char *ssid = "SmartLeaf";
-const char *password = "qzan8545";
+const char *ssid = "Santyago";
+const char *password = "L0u15!bS";
 
 // ThingsBoard connection stuff
-const char *token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
-const char *server = "10.209.97.110";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const char *token = "XS9VcN70T0g2hrSp1jJw"; // Device access token from ThingsBoard (copied from device page)
+const char *server = "192.168.1.14";       // IP address of your local ThingsBoard server IPV4 using ipconfig
 
 // ########################################################################
 const uint16_t port = 1883; // Jus the default port for MQTT
@@ -295,6 +295,7 @@ void RecieveAndSendTelemetry()
           // Add to valid devices
           TRANSMIT_DATA decoded = DecodeMessage(msgReceived);
           validDevices.push_back(decoded);
+          Serial.println("Vector Decode Passed.");
           received = true;
         }
         else if (state == RADIOLIB_ERR_CRC_MISMATCH)

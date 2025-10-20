@@ -62,8 +62,10 @@ TRANSMIT_DATA DecodeMessage(const String& message) {
   return data;
 }
 
+// Updated JSON function
 String transmitDataToJson(const TRANSMIT_DATA& d) {
     String s = "{";
+
     s += "\"ID\": " + String(d.ID) + ",";
     s += "\"year\": " + String(d.year) + ",";
     s += "\"month\": " + String(d.month) + ",";
@@ -71,18 +73,23 @@ String transmitDataToJson(const TRANSMIT_DATA& d) {
     s += "\"hour\": " + String(d.hour) + ",";
     s += "\"minute\": " + String(d.minute) + ",";
     s += "\"second\": " + String(d.second) + ",";
+
     s += "\"latitude\": " + String(d.latitude, 6) + ",";
     s += "\"longitude\": " + String(d.longitude, 6) + ",";
     s += "\"altitude\": " + String(d.altitude, 2) + ",";
+
     s += "\"waterOne\": " + String(d.waterOne) + ",";
     s += "\"waterTwo\": " + String(d.waterTwo) + ",";
+
     s += "\"Temperature\": " + String(d.Temperature) + ",";
     s += "\"Moisture\": " + String(d.Moisture) + ",";
     s += "\"EC\": " + String(d.EC) + ",";
     s += "\"PH\": " + String(d.PH) + ",";
+
     s += "\"isCharging\": " + String(d.isCharging ? "true" : "false") + ",";
     s += "\"batteryVoltage\": " + String(d.batteryVoltage) + ",";
     s += "\"batteryPercentage\": " + String(d.batteryPercentage);
-    s += "}";
+
+    s += "}";  // close values + main {}
     return s;
 }
