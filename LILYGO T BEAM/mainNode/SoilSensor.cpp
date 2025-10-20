@@ -38,25 +38,8 @@ bool SoilSensor::readSensor(uint8_t (&response)[13]) {
         if (readResponse(response, 13, 1000)) {
             uint16_t response_crc = (response[12] << 8) | response[11];
             uint16_t calculated_crc = crc16(response, 11);
-            // Serial.print("Calculated CRC: ");
-            // Serial.println(calculated_crc, HEX);
-            // Serial.print("Response CRC: ");
-            // Serial.println(response_crc, HEX);
-
-            // Serial.println("Response bytes:");
-            // for (int i = 0; i < 13; i++) {
-            //     Serial.print("Byte ");
-            //     Serial.print(i);
-            //     Serial.print(": 0x");
-            //     Serial.println(response[i], HEX);
-            // }
             if (response_crc == calculated_crc) {
                 Serial.println("Response received and CRC valid.");
-                // Serial.print("Raw Response: ");
-                // for (int i = 0; i < 13; i++) {
-                //     Serial.print(response[i], HEX);
-                //     Serial.print(" ");
-                // }
                 Serial.println();
 
                 SuccessfulMessage = true;
@@ -116,6 +99,7 @@ void SoilSensor::setTransmit(bool tx) {
   delay(2);
 }
 
+// Function to send a packet of data to the sensor
 bool SoilSensor::sendPacket(uint8_t *data, uint8_t len) {
   setTransmit(true);
   Serial2.write(data, len);
