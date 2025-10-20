@@ -9,9 +9,9 @@
 #include <Shared_Attribute_Update.h> 
 #include <ThingsBoard.h>
 
-// WiFi name and password (will have to change depending on network)
-const char* ssid = "Cepter";
-const char* password = "T0dayIS7";
+// WiFi name and password (will have to change depending on network) - Make sure its 2G not 5G
+const char* ssid = "YourSSID"; // Your WiFi SSID
+const char* password = "YourPassword"; // Your WiFi password
 
 // ThingsBoard connection stuff
 const char* token = "wftPEzifPcp1Z8szmGCs"; // Device access token from ThingsBoard (copied from device page)

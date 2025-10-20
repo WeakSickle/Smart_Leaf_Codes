@@ -93,28 +93,17 @@ void FDC1004::fdcRead() {
 }
 
 // Averages 10 capacitance readings and converts it to water volume
-float FDC1004::fdcReadAverageOne() {
+float FDC1004::fdcReadAverage(uint8_t channel, uint8_t samples) {
+    if (channel > 3 || samples == 0) {
+        return 0.0f;
+    }
 
-  float average[] = { 0, 0, 0, 0 };
-
-  for (int i = 0; i < 10; i++) {
-    fdcRead();
-    average[0] += capacitance[0];
-  }
-  return average[0] / 10;
-
-}
-
-float FDC1004::fdcReadAverageTwo() {
-
-  float average[] = { 0, 0, 0, 0 };
-
-  for (int i = 0; i < 10; i++) {
-    fdcRead();
-    average[1] += capacitance[1];
-  }
-  return average[1] /10;
-
+    float sum = 0.0f;
+    for (uint8_t i = 0; i < samples; ++i) {
+        fdcRead();                      // updates capacitance[] for all channels
+        sum += capacitance[channel];    // accumulate chosen channel
+    }
+    return sum / (float)samples;
 }
 
 FDC1004::FDC1004(uint16_t rate)

@@ -71,8 +71,7 @@ class FDC1004
     uint16_t read16(uint8_t reg);
     void fdcReadAverage();
     uint8_t convertCapacitanceToWaterVolume(float capacitance, int sensorNumber);
-    float fdcReadAverageOne();
-    float fdcReadAverageTwo();
+    float fdcReadAverage(uint8_t channel, uint8_t samples = 10); // average N readings for a specified channel (channel: 0-3)
 
  private:
 

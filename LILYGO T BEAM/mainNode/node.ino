@@ -266,25 +266,6 @@ case GPS_LOCK: // Once lock is acquired do this step
   data.longitude = GPS.longitude / 10000000.0; // Convert to degrees
   data.altitude = GPS.altitude / 1000.0;       // Convert to meters
 
-  // Serial.print("Year: ");
-  // Serial.print(data.year);
-  // Serial.print(" Month: ");
-  // Serial.print(data.month);
-  // Serial.print(" Day: ");
-  // Serial.print(data.day);
-  // Serial.print(" Hour: ");
-  // Serial.print(data.hour);
-  // Serial.print(" Minute: ");
-  // Serial.print(data.minute);
-  // Serial.print(" Second: ");
-  // Serial.print(data.second);
-  // Serial.print(" Latitude: ");
-  // Serial.print(data.latitude);
-  // Serial.print(" Longitude: ");
-  // Serial.print(data.longitude);
-  // Serial.print(" Altitude: ");
-  // Serial.println(data.altitude);
-
 #ifdef USE_DISPLAY
   DISPLAY_STATE(); // Display the current state on the screen
 #endif
@@ -329,8 +310,8 @@ case SENSOR_DATA:
   #ifdef USE_FDC
   FDC.fdcRead(); // Read the FDC data
   Serial.println("FDC Readings: ");
-  float channelOne = FDC.fdcReadAverageOne(); // Average the FDC data then print it
-  float channelTwo = FDC.fdcReadAverageTwo();
+  float channelOne = FDC.fdcReadAverage(1, 10); // Average the FDC data channel 1
+  float channelTwo = FDC.fdcReadAverage(2, 10); // Average the FDC data channel 2
 
   // Print the raw capacitance values
   Serial.print("Channel 1: ");
@@ -339,8 +320,8 @@ case SENSOR_DATA:
   Serial.println(channelTwo);
 
   // Convert capacitance to water volume
-  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1);
-  waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2 );
+  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1); // Convert using Sensor #1 Equation
+  waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2); // Convert using Sensor #2 Equation
 
   // Print the water volumes
   Serial.print("Water Volume 1: ");
@@ -399,12 +380,6 @@ case PMU_INFO:
 
   uint16_t BatV = PMU->getBattVoltage(); // in mV
 
-  // Apparently it has a temperature sensor but the get temp is not
-  // exposed in interface for some reason the function is there
-
-  // PMU->enableTemperatureMeasure();
-  // PMU->getTemperature();
-
   bool chargingStatus = PMU->isCharging();
 
   // Store the data into the struct for transmission
@@ -413,7 +388,6 @@ case PMU_INFO:
   data.isCharging = chargingStatus;
 
   currentState = TRANSMIT; // Move to the next state
-  // delay(1000);
   break;
 }
 case TRANSMIT:

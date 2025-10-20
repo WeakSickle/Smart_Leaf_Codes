@@ -21,8 +21,10 @@
 // configuration settings ########## Please read the instruction manual for
 // configuring to work WiFi name and password (will have to change depending on
 // network)
-const char *ssid = "Cepter";
-const char *password = "T0dayIS7";
+
+// Make sure its 2G not 5G
+const char *ssid = "YourSSID";        // Your WiFi SSID
+const char *password = "YourPassword"; // Your WiFi password
 
 // ThingsBoard connection stuff
 const char *token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
