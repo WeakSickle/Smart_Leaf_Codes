@@ -40,7 +40,7 @@ SX1278 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO
 
 #elif   defined(USING_SX1262)
 #ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           923.5 // 923.5, 923.8
+#define CONFIG_RADIO_FREQ           923.20 //850.0 // 923.5, 923.8
 #endif
 #ifndef CONFIG_RADIO_OUTPUT_POWER
 #define CONFIG_RADIO_OUTPUT_POWER   22
@@ -122,6 +122,7 @@ static int transmissionState = RADIOLIB_ERR_NONE;
 static volatile bool transmittedFlag = false;
 static uint32_t counter = 0;
 static String payload;
+static String demoPayload = "1,2025,10,15,12,30,22,-37.123456,175.123456,50.50,12,15,27,58,1,4200,90";
 
 // this function is called when a complete packet
 // is transmitted by the module
@@ -331,7 +332,8 @@ void setup()
 
     // you can transmit C-string or Arduino string up to
     // 256 characters long
-    transmissionState = radio.startTransmit(String(counter).c_str());
+    // transmissionState = radio.startTransmit(String(counter).c_str());
+    transmissionState = radio.startTransmit(demoPayload);
 
     // you can also transmit byte array up to 256 bytes long
     /*
@@ -349,7 +351,7 @@ void loop()
     // check if the previous transmission finished
     if (transmittedFlag) {
 
-        payload = "Node 2";
+        payload = String(++counter);
 
         // reset flag
         transmittedFlag = false;
@@ -378,7 +380,7 @@ void loop()
 
         // you can transmit C-string or Arduino string up to
         // 256 characters long
-        transmissionState = radio.startTransmit(payload);
+        transmissionState = radio.startTransmit(demoPayload);
         // you can also transmit byte array up to 256 bytes long
         /*
           byte byteArr[] = {0x01, 0x23, 0x45, 0x67,
@@ -400,7 +402,7 @@ void drawMain()
         u8g2->setCursor(22, 25);
         u8g2->print("TX:");
         u8g2->setCursor(22, 40);
-        u8g2->print("STATE:");
+        u8g2->print(payload);
 
         u8g2->setFont(u8g2_font_crox1h_tr);
         u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 25 );

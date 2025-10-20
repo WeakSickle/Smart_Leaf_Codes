@@ -45,7 +45,7 @@ SX1278 radio = new Module(RADIO_CS_PIN, RADIO_DIO0_PIN, RADIO_RST_PIN, RADIO_DIO
 
 #elif   defined(USING_SX1262)
 #ifndef CONFIG_RADIO_FREQ
-#define CONFIG_RADIO_FREQ           850.0
+#define CONFIG_RADIO_FREQ           923.20
 #endif
 #ifndef CONFIG_RADIO_OUTPUT_POWER
 #define CONFIG_RADIO_OUTPUT_POWER   22
@@ -124,6 +124,10 @@ static volatile bool receivedFlag = false;
 static String rssi = "0dBm";
 static String snr = "0dB";
 static String payload = "0";
+String expectedPayload = "1,2025,10,15,12,30,22,-37.123456,175.123456,50.50,12,15,27,58,1,4200,90";
+unsigned long rxCounter = 0;       // counts received packets
+String rxStatus = "WAITING...";    // shows if payload OK or error
+
 
 // this function is called when a complete packet
 // is received by the module
@@ -358,7 +362,7 @@ void loop()
 
         // you can read received data as an Arduino String
         int state = radio.readData(payload);
-
+        rxCounter++;
         // you can also read received data as byte array
         /*
           byte byteArr[8];
@@ -368,6 +372,13 @@ void loop()
         flashLed();
 
         if (state == RADIOLIB_ERR_NONE) {
+            if (payload == expectedPayload) {
+                rxStatus = "OK";
+            } else {
+                rxStatus = "ERR";
+            }
+
+
 
             rssi = String(radio.getRSSI()) + "dBm";
             snr = String(radio.getSNR()) + "dB";
@@ -378,7 +389,7 @@ void loop()
             Serial.println(F("Radio Received packet!"));
 
             // print data of the packet
-            Serial.print(F("Radio Data:\t\t"));
+            Serial.print(F("Packet #")); Serial.println(rxCounter);
             Serial.println(payload);
 
             // print RSSI (Received Signal Strength Indicator)
@@ -389,11 +400,15 @@ void loop()
             Serial.print(F("Radio SNR:\t\t"));
             Serial.println(snr);
 
+            Serial.println(rxStatus);
+
         } else if (state == RADIOLIB_ERR_CRC_MISMATCH) {
             // packet was received, but is malformed
+            rxStatus = "CRC ERROR";
             Serial.println(F("CRC error!"));
         } else {
             // some other error occurred
+            rxStatus = "RX FAIL";
             Serial.print(F("failed, code "));
             Serial.println(state);
         }
@@ -404,26 +419,30 @@ void loop()
     }
 }
 
-void drawMain()
-{
+void drawMain() {
     if (u8g2) {
         u8g2->clearBuffer();
         u8g2->drawRFrame(0, 0, 128, 64, 5);
-        u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
-        u8g2->setCursor(15, 20);
-        u8g2->print("RX:");
-        u8g2->setCursor(15, 35);
-        u8g2->print("SNR:");
-        u8g2->setCursor(15, 50);
-        u8g2->print("RSSI:");
 
-        u8g2->setFont(u8g2_font_crox1h_tr);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(payload.c_str()) - 21, 20 );
-        u8g2->print(payload);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(snr.c_str()) - 21, 35 );
-        u8g2->print(snr);
-        u8g2->setCursor( U8G2_HOR_ALIGN_RIGHT(rssi.c_str()) - 21, 50 );
+        u8g2->setFont(u8g2_font_pxplusibmvga8_mr);
+        u8g2->setCursor(10, 15);
+        u8g2->print("RX Count:");
+        u8g2->setCursor(80, 15);
+        u8g2->print(rxCounter);
+
+        u8g2->setCursor(10, 30);
+        u8g2->print("RSSI:");
+        u8g2->setCursor(80, 30);
         u8g2->print(rssi);
+
+        u8g2->setCursor(10, 45);
+        u8g2->print("SNR:");
+        u8g2->setCursor(80, 45);
+        u8g2->print(snr);
+
+        u8g2->setCursor(10, 60);
+        u8g2->print(rxStatus);  // shows PAYLOAD OK, MISMATCH, or CRC ERROR
+
         u8g2->sendBuffer();
     }
 }
