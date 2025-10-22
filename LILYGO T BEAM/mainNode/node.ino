@@ -26,7 +26,7 @@
 #define USE_SLEEP
 
 const unsigned long TRANSMISSION_DURATION_MS = 30000;
-const uint64_t secondsToSleep = 10800;
+const uint64_t secondsToSleep = 60;
 
 
 // Setup for the FDC
@@ -323,8 +323,8 @@ case SENSOR_DATA:
   Serial.println(channelTwo);
 
   // Convert capacitance to water volume
-  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 1); // Convert using Sensor #1 Equation
-  waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 2); // Convert using Sensor #2 Equation
+  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 5); // Convert using Sensor #5 Equation
+  waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 4); // Convert using Sensor #4 Equation
 
   // Print the water volumes
   Serial.print("Water Volume 1: ");

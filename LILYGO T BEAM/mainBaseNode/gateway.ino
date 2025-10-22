@@ -27,12 +27,12 @@
 // network)
 
 // Make sure its 2G not 5G
-const char *ssid = "YourSSID";        // Your WiFi SSID
-const char *password = "YourPassword"; // Your WiFi password
+const char *ssid = "SmartLeaf";        // Your WiFi SSID
+const char *password = "qzan8545"; // Your WiFi password
 
 // ThingsBoard connection stuff
 const char *token = "3g6yOcNlFZj2G9fGQLe8"; // Device access token from ThingsBoard (copied from device page)
-const char *server = "192.168.1.145";       // IP address of your local ThingsBoard server IPV4 using ipconfig
+const char *server = "10.158.50.110";       // IP address of your local ThingsBoard server IPV4 using ipconfig
 
 // ########################################################################
 
@@ -42,6 +42,8 @@ int numberOfDevices = NUMBER_OF_DEVICES;
 // List of frequencies currently supported
 // float Frequencies[] = {923.2, 923.4, 923.6, 923.8, 924.0,
 //                        924.2, 924.4, 924.6, 924.8};
+// SAMS NODE 2 = "-36.853159,174.79727"
+// SAMS NODE 1 = "-36.853076, 174.770002"
 float *Frequencies;
 unsigned long *deviceLastReceived;  // Array to hold the last received time for each device
 static volatile bool transmittedFlag =false;  // Flag to indicate that a packet was received
@@ -162,18 +164,18 @@ void loop() {
 
   // Update telemetry at the configured sampling interval
   if (millis() - lastSent > samplingFrequency) {
-    // RecieveAndSendTelemetry();
-    SendExampleTelemetry();
+    RecieveAndSendTelemetry();
+    // SendExampleTelemetry();
     lastSent = millis();
   }
 
 
   // Check device activity periodically
-  static unsigned long lastActivityCheck = 0;
-  if (millis() - lastActivityCheck > 60000) { // every 1 minute
-    checkDeviceActivity();
-    lastActivityCheck = millis();
-  }
+  // static unsigned long lastActivityCheck = 0;
+  // if (millis() - lastActivityCheck > 60000) { // every 1 minute
+  //   checkDeviceActivity();
+  //   lastActivityCheck = millis();
+  // }
 }
 
 // Function for checking the RADIO setup error codes
@@ -275,7 +277,7 @@ void RecieveAndSendTelemetry() {
     Serial.println(freq);
 
     // if the message has already been received in the previous 2 minutes skip
-    if (deviceLastReceived[i] != 0 && (millis() - deviceLastReceived[i]) < 120000) {
+    if (deviceLastReceived[i] != 0 && (millis() - deviceLastReceived[i]) < 20000) {
       Serial.println(F("Message recently received, skipping..."));
       continue;
     }
@@ -304,6 +306,15 @@ void RecieveAndSendTelemetry() {
 
           // Add to valid devices
           TRANSMIT_DATA decoded = DecodeMessage(msgReceived);
+          
+          if (i = 0) {
+            decoded.latitude = -36.853076;
+            decoded.longitude = 174.770002;
+          } else {
+            decoded.latitude = -36.853159;
+            decoded.longitude = 174.79727;
+          }
+          
           validDevices.push_back(decoded);
           Serial.println("Vector Decode Passed.");
           received = true;
@@ -389,7 +400,7 @@ void SendExampleTelemetry() {
     exampleDevices[i].latitude = -36.8541 + i * 0.0001 + random(-10, 11) * 0.00001;
     exampleDevices[i].longitude = 174.769 + i * 0.0001 + random(-10, 11) * 0.00001;
     exampleDevices[i].altitude = 10.5 + i * 0.1 + random(-5, 6) * 0.01;
-    exampleDevices[i].Temperature = 186 + random(-5, 6); // 18.6°C * 10
+    exampleDevices[i].Temperature = 18.6 + random(-5, 6); // 18.6°C * 10
     exampleDevices[i].Moisture = 40 + random(-3, 4);
     exampleDevices[i].EC = 1200 + random(-20, 21);
     exampleDevices[i].PH = 7 + random(-1, 2);

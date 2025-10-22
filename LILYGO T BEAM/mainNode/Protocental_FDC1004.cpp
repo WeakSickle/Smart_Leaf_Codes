@@ -42,17 +42,41 @@ uint8_t FDC1004::convertCapacitanceToWaterVolume(float capacitance, int sensorNu
   // Conversion logic based on sensor calibration
   // This is a placeholder implementation
   if (sensorNumber == 1) {
-    return (uint8_t)((capacitance - 17.226) * 1.155); // Example conversion for sensor 1
+    if (((capacitance - 17.226) * 1.155) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 17.226) * 1.155);
+    }; // Example conversion for sensor 1
   } else if (sensorNumber == 2) {
-    return (uint8_t)((capacitance - 21.551) * 2.930); // Example conversion for sensor 2
+    if (((capacitance - 21.551) * 2.930) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 21.551) * 2.930);
+    }; // Example conversion for sensor 2
   } else if (sensorNumber == 3) {
-    return (uint8_t)((capacitance - 14.132) * 4.534); // Example conversion for sensor 3
+    if (((capacitance - 14.132) * 4.534) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 14.132) * 4.534);
+    }; // Example conversion for sensor 3
   } else if (sensorNumber == 4) {
-    return (uint8_t)((capacitance - 20.528) * 0.68); // Example conversion for sensor 4
+    if (((capacitance - 20.528) * 0.68) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 20.528) * 0.68);
+    }; // Example conversion for sensor 4
   } else if (sensorNumber == 5) {
-    return (uint8_t)((capacitance - 15.673) * 0.056); // Example conversion for sensor 5
+    if (((capacitance - 15.673) * 0.056) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 15.673) * 0.056);
+    }; // Example conversion for sensor 5
   } else  if (sensorNumber == 6) {
-    return (uint8_t)((capacitance - 19.35) * 0.6); // Example conversion for sensor 6
+    if (((capacitance - 19.35) * 0.6) < 0) {
+      return 0;
+    } else {
+      return (uint8_t)((capacitance - 19.35) * 0.6);
+    }; // Example conversion for sensor 6
   } else {
     return 0; // Invalid sensor number
   }
