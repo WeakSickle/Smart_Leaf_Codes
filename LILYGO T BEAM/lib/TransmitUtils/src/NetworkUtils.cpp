@@ -37,7 +37,8 @@ void connectDevice(Arduino_MQTT_Client &client, const char* deviceName) {
 String buildPayload(TRANSMIT_DATA validDevices[], int numValidDevices) {
     String payload = "{\n";
     for (int i = 0; i < numValidDevices; i++) {
-        String deviceName = "SAMS Node " + String(i + 1);
+        int nodeNum = (validDevices[i].ID != 0) ? validDevices[i].ID : (i + 1);
+        String deviceName = "SAMS Node " + String(nodeNum);
         payload += "  \"" + deviceName + "\": [";
         payload += transmitDataToJson(validDevices[i]);
         payload += "]";

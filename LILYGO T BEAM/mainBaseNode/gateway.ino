@@ -307,13 +307,8 @@ void RecieveAndSendTelemetry() {
           // Add to valid devices
           TRANSMIT_DATA decoded = DecodeMessage(msgReceived);
           
-          if (i = 0) {
-            decoded.latitude = -36.853076;
-            decoded.longitude = 174.770002;
-          } else {
-            decoded.latitude = -36.853159;
-            decoded.longitude = 174.79727;
-          }
+            decoded.latitude = -36.8541 + i * 0.0001 + random(-10, 11) * 0.00001;
+            decoded.longitude = 174.769 + i * 0.0001 + random(-10, 11) * 0.00001;
           
           validDevices.push_back(decoded);
           Serial.println("Vector Decode Passed.");

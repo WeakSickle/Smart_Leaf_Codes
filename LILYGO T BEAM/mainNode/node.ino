@@ -9,14 +9,14 @@
 #include "SoilSensor.h"
 #include <TransmitUtils.h>
 // Radio Parameters
-#define CONFIG_RADIO_FREQ 923.20
+#define CONFIG_RADIO_FREQ 923.40
 
 #define CONFIG_RADIO_OUTPUT_POWER 22
 
 #define CONFIG_RADIO_BW 125.0
 
 // Constant params
-#define NODE_ID 1
+#define NODE_ID 2
 
 // Setup for different levels of funtion
 #define LOW_POWER_CONFIG // Use our power saving functionality
@@ -323,7 +323,7 @@ case SENSOR_DATA:
   Serial.println(channelTwo);
 
   // Convert capacitance to water volume
-  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 5); // Convert using Sensor #5 Equation
+  waterVolumeOne = FDC.convertCapacitanceToWaterVolume(channelOne, 2); // Convert using Sensor #5 Equation
   waterVolumeTwo = FDC.convertCapacitanceToWaterVolume(channelTwo, 4); // Convert using Sensor #4 Equation
 
   // Print the water volumes
